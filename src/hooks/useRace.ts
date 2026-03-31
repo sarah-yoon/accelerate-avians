@@ -1,0 +1,190 @@
+"use client";
+
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useTyping } from "./useTyping";
+import type { Passage, GhostRacer, RaceResult, RacePhase } from "@/types";
+
+interface UseRaceReturn {
+  phase: RacePhase;
+  countdownValue: number | "GO";
+  passage: Passage | null;
+  ghosts: GhostRacer[];
+  playerProgress: number;
+  cursorPos: number;
+  hasError: boolean;
+  wpm: number;
+  accuracy: number;
+  result: RaceResult | null;
+  isLoading: boolean;
+  raceStartTime: number | null;
+  startRace: (difficulty?: string, samePassage?: boolean) => Promise<void>;
+  handleKeyDown: (e: KeyboardEvent) => void;
+  handleCompositionStart: () => void;
+  handleCompositionEnd: () => void;
+}
+
+export function useRace(clerkId?: string): UseRaceReturn {
+  const [phase, setPhase] = useState<RacePhase>("idle");
+  const [countdownValue, setCountdownValue] = useState<number | "GO">(3);
+  const [passage, setPassage] = useState<Passage | null>(null);
+  const [ghosts, setGhosts] = useState<GhostRacer[]>([]);
+  const [result, setResult] = useState<RaceResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [raceStartTime, setRaceStartTime] = useState<number | null>(null);
+  const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const typing = useTyping(
+    passage?.text ?? "",
+    raceStartTime,
+    phase === "racing"
+  );
+
+  const playerProgress = passage
+    ? typing.cursorPos / passage.charCount
+    : 0;
+
+  // Watch for race completion
+  const typingComplete = typing.isComplete;
+  const typingWpm = typing.wpm;
+  const typingAccuracy = typing.accuracy;
+  const typingGhostData = typing.ghostData;
+  const typingTotalKeystrokes = typing.totalKeystrokes;
+  const typingCorrectKeystrokes = typing.correctKeystrokes;
+
+  useEffect(() => {
+    if (typingComplete && phase === "racing" && passage) {
+      setPhase("finished");
+
+      // Calculate placement vs ghosts
+      const ghostFinishTimes = ghosts.map((g) => {
+        const lastPoint = g.ghostData[g.ghostData.length - 1];
+        return lastPoint?.ms ?? Infinity;
+      });
+      const playerTime =
+        typingGhostData[typingGhostData.length - 1]?.ms ?? Infinity;
+      const beaten = ghostFinishTimes.filter((t) => playerTime < t).length;
+      const placement = ghosts.length + 1 - beaten;
+
+      const raceResult: RaceResult = {
+        wpm: typingWpm,
+        accuracy: typingAccuracy,
+        placement,
+        totalRacers: ghosts.length + 1,
+        isPersonalBest: false, // Server will determine this
+      };
+      setResult(raceResult);
+
+      // Submit score if authenticated
+      if (clerkId) {
+        fetch("/api/scores", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            passageId: passage.id,
+            ghostData: typingGhostData,
+            totalKeystrokes: typingTotalKeystrokes,
+            correctKeystrokes: typingCorrectKeystrokes,
+          }),
+        }).catch(console.error);
+      }
+    }
+  }, [typingComplete, phase, passage, ghosts, clerkId, typingWpm, typingAccuracy, typingGhostData, typingTotalKeystrokes, typingCorrectKeystrokes]);
+
+  const startRace = useCallback(
+    async (difficulty?: string, samePassage?: boolean) => {
+      // Clear any existing countdown timers
+      countdownTimersRef.current.forEach(clearTimeout);
+      countdownTimersRef.current = [];
+
+      setIsLoading(true);
+      setResult(null);
+      setPhase("idle");
+      setRaceStartTime(null);
+
+      try {
+        let passageData: Passage;
+
+        if (samePassage && passage) {
+          passageData = passage;
+        } else {
+          // Fetch random passage
+          const passageUrl = difficulty
+            ? `/api/passages/random?difficulty=${difficulty}`
+            : "/api/passages/random";
+          const passageRes = await fetch(passageUrl);
+          if (!passageRes.ok) throw new Error("Failed to fetch passage");
+          passageData = await passageRes.json();
+          setPassage(passageData);
+        }
+
+        // Fetch ghosts (ghosts API accepts optional userId as DB user id;
+        // we pass clerkId and let the API resolve it — see ghosts route)
+        const ghostUrl = clerkId
+          ? `/api/passages/${passageData.id}/ghosts?clerkId=${clerkId}`
+          : `/api/passages/${passageData.id}/ghosts`;
+        const ghostRes = await fetch(ghostUrl);
+        const ghostData = await ghostRes.json();
+        setGhosts(ghostData.ghosts || []);
+
+        // Reset typing engine
+        typing.reset(passageData.text);
+
+        setIsLoading(false);
+
+        // Start countdown
+        setPhase("countdown");
+        setCountdownValue(3);
+
+        const countdownSequence = [
+          { value: 2 as number | "GO", delay: 1000 },
+          { value: 1 as number | "GO", delay: 2000 },
+          { value: "GO" as number | "GO", delay: 3000 },
+        ];
+
+        for (const step of countdownSequence) {
+          const timerId = setTimeout(() => {
+            setCountdownValue(step.value);
+          }, step.delay);
+          countdownTimersRef.current.push(timerId);
+        }
+
+        // Start race after countdown
+        const raceTimerId = setTimeout(() => {
+          setRaceStartTime(performance.now());
+          setPhase("racing");
+        }, 3500);
+        countdownTimersRef.current.push(raceTimerId);
+      } catch (error) {
+        console.error("Failed to start race:", error);
+        setIsLoading(false);
+      }
+    },
+    [clerkId, typing, passage]
+  );
+
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      countdownTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
+  return {
+    phase,
+    countdownValue,
+    passage,
+    ghosts,
+    playerProgress,
+    cursorPos: typing.cursorPos,
+    hasError: typing.hasError,
+    wpm: typing.wpm,
+    accuracy: typing.accuracy,
+    result,
+    isLoading,
+    raceStartTime,
+    startRace,
+    handleKeyDown: typing.handleKeyDown,
+    handleCompositionStart: typing.handleCompositionStart,
+    handleCompositionEnd: typing.handleCompositionEnd,
+  };
+}
