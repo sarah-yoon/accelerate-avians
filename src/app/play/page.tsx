@@ -1,15 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRace } from "@/hooks/useRace";
 import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { MobileInterstitial } from "@/components/MobileInterstitial";
 import Link from "next/link";
+import type { Difficulty } from "@/types";
+
+type BotDifficulty = "easy" | "medium" | "hard";
 
 export default function PlayPage() {
   const { user } = useUser();
   const race = useRace(user?.id);
+  const [selectedLength, setSelectedLength] = useState<Difficulty>("medium");
+  const [selectedBotDifficulty, setSelectedBotDifficulty] = useState<BotDifficulty>("easy");
 
   return (
     <>
@@ -51,7 +57,7 @@ export default function PlayPage() {
               phase={race.phase}
               countdownValue={race.countdownValue}
               playerProgress={race.playerProgress}
-              playerBird="robin" /* TODO: fetch from user profile DB record */
+              playerBird="robin"
               playerUsername={user?.username ?? "Guest"}
               ghosts={race.ghosts}
               totalChars={race.passage.charCount}
@@ -77,26 +83,64 @@ export default function PlayPage() {
             </div>
           )}
 
-          {/* Idle state — start button */}
+          {/* Idle state — settings + start button */}
           {race.phase === "idle" && !race.isLoading && !race.result && (
             <div className="flex flex-col items-center mt-8">
+              {/* Passage length selector */}
+              <div className="mb-6">
+                <p className="font-heading text-[8px] text-pixel-text-dim mb-2 text-center">
+                  PASSAGE LENGTH
+                </p>
+                <div className="flex gap-2">
+                  {(["short", "medium", "long"] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedLength(d)}
+                      className={`font-heading text-[8px] px-4 py-2 border ${
+                        selectedLength === d
+                          ? "border-pixel-bird-yellow text-pixel-bird-yellow bg-pixel-navy"
+                          : "border-pixel-text-dim text-pixel-text-dim hover:text-pixel-text-white"
+                      }`}
+                    >
+                      {d.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bot difficulty selector */}
+              <div className="mb-8">
+                <p className="font-heading text-[8px] text-pixel-text-dim mb-2 text-center">
+                  BOT DIFFICULTY
+                </p>
+                <div className="flex gap-2">
+                  {(["easy", "medium", "hard"] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedBotDifficulty(d)}
+                      className={`font-heading text-[8px] px-4 py-2 border ${
+                        selectedBotDifficulty === d
+                          ? d === "easy"
+                            ? "border-pixel-text-green text-pixel-text-green bg-pixel-navy"
+                            : d === "medium"
+                            ? "border-pixel-bird-yellow text-pixel-bird-yellow bg-pixel-navy"
+                            : "border-pixel-bird-red text-pixel-bird-red bg-pixel-navy"
+                          : "border-pixel-text-dim text-pixel-text-dim hover:text-pixel-text-white"
+                      }`}
+                    >
+                      {d.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Start button */}
               <button
-                onClick={() => race.startRace()}
+                onClick={() => race.startRace(selectedLength, false, selectedBotDifficulty)}
                 className="bg-pixel-grass text-pixel-black font-heading text-sm px-8 py-4 hover:bg-pixel-text-green"
               >
                 Start Race
               </button>
-              <div className="flex gap-2 mt-4">
-                {(["short", "medium", "long"] as const).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => race.startRace(d)}
-                    className="bg-pixel-panel border border-pixel-text-dim text-pixel-text-white font-heading text-[8px] px-3 py-2 hover:border-pixel-bird-yellow"
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 
@@ -117,33 +161,23 @@ export default function PlayPage() {
               </h2>
               <div className="grid grid-cols-2 gap-4 text-center mb-6">
                 <div>
-                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">
-                    WPM
-                  </p>
-                  <p className="font-heading text-lg text-pixel-text-green">
-                    {race.result.wpm}
-                  </p>
+                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">WPM</p>
+                  <p className="font-heading text-lg text-pixel-text-green">{race.result.wpm}</p>
                 </div>
                 <div>
-                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">
-                    Accuracy
-                  </p>
+                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">Accuracy</p>
                   <p className="font-heading text-lg text-pixel-text-white">
                     {Math.round(race.result.accuracy * 100)}%
                   </p>
                 </div>
                 <div>
-                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">
-                    Placement
-                  </p>
+                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">Placement</p>
                   <p className="font-heading text-lg text-pixel-bird-yellow">
                     {race.result.placement}/{race.result.totalRacers}
                   </p>
                 </div>
                 <div>
-                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">
-                    Status
-                  </p>
+                  <p className="font-heading text-[10px] text-pixel-text-dim mb-1">Status</p>
                   <p className="font-heading text-sm text-pixel-text-white">
                     {!user && "Sign in to save"}
                     {user && (race.result.isPersonalBest ? "New PB!" : "Saved")}
@@ -152,13 +186,13 @@ export default function PlayPage() {
               </div>
               <div className="flex gap-4 justify-center">
                 <button
-                  onClick={() => race.startRace(undefined, true)}
+                  onClick={() => race.startRace(selectedLength, true, selectedBotDifficulty)}
                   className="bg-pixel-grass text-pixel-black font-heading text-[10px] px-6 py-3 hover:bg-pixel-text-green"
                 >
                   Race Again
                 </button>
                 <button
-                  onClick={() => race.startRace()}
+                  onClick={() => race.startRace(selectedLength, false, selectedBotDifficulty)}
                   className="bg-pixel-panel border border-pixel-text-dim text-pixel-text-white font-heading text-[10px] px-6 py-3 hover:border-pixel-bird-yellow"
                 >
                   New Bird

@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { GhostRacer } from "@/types";
 
+// Bot difficulty WPM ranges
+const BOT_WPM_RANGES = {
+  easy: { min: 20, max: 45 },
+  medium: { min: 40, max: 75 },
+  hard: { min: 60, max: 110 },
+};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -9,6 +16,7 @@ export async function GET(
   const { id: passageId } = await params;
   const { searchParams } = new URL(request.url);
   const clerkId = searchParams.get("clerkId");
+  const botDifficulty = searchParams.get("botDifficulty") as "easy" | "medium" | "hard" | null;
 
   // Resolve clerkId to internal userId
   let userId: string | null = null;
@@ -39,66 +47,41 @@ export async function GET(
     }
   }
 
-  // 2. Get baseline WPM for ghost tier selection
-  // Use player's personal avg WPM if available, otherwise community median
-  let baselineWpm = 60;
-  if (userId) {
-    const playerAvg = await prisma.score.aggregate({
-      where: { userId },
-      _avg: { wpm: true },
-    });
-    if (playerAvg._avg.wpm) {
-      baselineWpm = playerAvg._avg.wpm;
-    }
-  }
-  if (baselineWpm === 60) {
-    // Fallback: use community average for this passage
-    const communityAvg = await prisma.score.aggregate({
-      where: { passageId },
-      _avg: { wpm: true },
-    });
-    baselineWpm = communityAvg._avg.wpm ?? 60;
-  }
-  const avgWpm = baselineWpm;
+  // 2. Get bot ghosts based on difficulty selection
+  const wpmRange = BOT_WPM_RANGES[botDifficulty || "easy"];
 
-  // 3. Get community ghosts at different skill tiers: avg-10, avg, avg+20
-  const tiers = [
-    Math.max(25, Math.round(avgWpm - 10)),
-    Math.round(avgWpm),
-    Math.round(avgWpm + 20),
-  ];
+  const botGhosts = await prisma.score.findMany({
+    where: {
+      passageId,
+      wpm: { gte: wpmRange.min, lte: wpmRange.max },
+      user: { clerkId: { startsWith: "bot_" } },
+      id: { notIn: ghosts.map((g) => g.id) },
+    },
+    take: 3,
+    orderBy: { wpm: "asc" },
+    include: { user: { select: { id: true, username: true, displayBird: true } } },
+  });
 
-  for (const targetWpm of tiers) {
-    const score = await prisma.score.findFirst({
-      where: {
-        passageId,
-        wpm: { gte: targetWpm - 5, lte: targetWpm + 5 },
-        ...(userId ? { userId: { not: userId } } : {}),
-      },
-      orderBy: { wpm: "asc" },
-      include: { user: { select: { id: true, username: true, displayBird: true } } },
+  for (const score of botGhosts) {
+    ghosts.push({
+      id: score.id,
+      username: score.user.username,
+      displayBird: score.user.displayBird,
+      wpm: score.wpm,
+      ghostData: score.ghostData as { charIndex: number; ms: number }[],
     });
-
-    if (score && !ghosts.find((g) => g.id === score.id)) {
-      ghosts.push({
-        id: score.id,
-        username: score.user.username,
-        displayBird: score.user.displayBird,
-        wpm: score.wpm,
-        ghostData: score.ghostData as { charIndex: number; ms: number }[],
-      });
-    }
   }
 
-  // If we don't have enough ghosts, fill with any available scores
+  // 3. If not enough ghosts, fill with any available bot scores for this passage
   if (ghosts.length < 3) {
     const fillers = await prisma.score.findMany({
       where: {
         passageId,
         id: { notIn: ghosts.map((g) => g.id) },
+        user: { clerkId: { startsWith: "bot_" } },
       },
       take: 3 - ghosts.length,
-      orderBy: { wpm: "desc" },
+      orderBy: { wpm: "asc" },
       include: { user: { select: { id: true, username: true, displayBird: true } } },
     });
 

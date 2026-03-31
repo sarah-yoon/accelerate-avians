@@ -18,7 +18,7 @@ interface UseRaceReturn {
   isLoading: boolean;
   raceStartTime: number | null;
   elapsedMs: number;
-  startRace: (difficulty?: string, samePassage?: boolean) => Promise<void>;
+  startRace: (difficulty?: string, samePassage?: boolean, botDifficulty?: string) => Promise<void>;
   handleKeyDown: (e: KeyboardEvent) => void;
   handleCompositionStart: () => void;
   handleCompositionEnd: () => void;
@@ -94,7 +94,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
   }, [typingComplete, phase, passage, ghosts, clerkId, typingWpm, typingAccuracy, typingGhostData, typingTotalKeystrokes, typingCorrectKeystrokes]);
 
   const startRace = useCallback(
-    async (difficulty?: string, samePassage?: boolean) => {
+    async (difficulty?: string, samePassage?: boolean, botDifficulty?: string) => {
       // Clear any existing countdown timers
       countdownTimersRef.current.forEach(clearTimeout);
       countdownTimersRef.current = [];
@@ -120,11 +120,12 @@ export function useRace(clerkId?: string): UseRaceReturn {
           setPassage(passageData);
         }
 
-        // Fetch ghosts (ghosts API accepts optional userId as DB user id;
-        // we pass clerkId and let the API resolve it — see ghosts route)
-        const ghostUrl = clerkId
-          ? `/api/passages/${passageData.id}/ghosts?clerkId=${clerkId}`
-          : `/api/passages/${passageData.id}/ghosts`;
+        // Fetch ghosts with optional bot difficulty filter
+        const ghostParams = new URLSearchParams();
+        if (clerkId) ghostParams.set("clerkId", clerkId);
+        if (botDifficulty) ghostParams.set("botDifficulty", botDifficulty);
+        const ghostQuery = ghostParams.toString();
+        const ghostUrl = `/api/passages/${passageData.id}/ghosts${ghostQuery ? `?${ghostQuery}` : ""}`;
         const ghostRes = await fetch(ghostUrl);
         const ghostData = await ghostRes.json();
         setGhosts(ghostData.ghosts || []);
