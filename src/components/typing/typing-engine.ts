@@ -1,0 +1,91 @@
+import type { GhostDataPoint } from "@/types";
+
+export class TypingEngine {
+  private passage: string;
+  private _cursorPos = 0;
+  private _errors = 0;
+  private _hasError = false;
+  private _totalKeystrokes = 0;
+  private _correctKeystrokes = 0;
+  private _ghostData: GhostDataPoint[] = [];
+  private _isComposing = false;
+
+  constructor(passage: string) {
+    this.passage = passage;
+  }
+
+  get cursorPos(): number {
+    return this._cursorPos;
+  }
+
+  get errors(): number {
+    return this._errors;
+  }
+
+  get hasError(): boolean {
+    return this._hasError;
+  }
+
+  get isComplete(): boolean {
+    return this._cursorPos >= this.passage.length;
+  }
+
+  get ghostData(): GhostDataPoint[] {
+    return this._ghostData;
+  }
+
+  get totalKeystrokes(): number {
+    return this._totalKeystrokes;
+  }
+
+  get correctKeystrokes(): number {
+    return this._correctKeystrokes;
+  }
+
+  setComposing(composing: boolean): void {
+    this._isComposing = composing;
+  }
+
+  handleKey(key: string, timestampMs: number): void {
+    if (this._isComposing || this.isComplete) return;
+    if (key.length !== 1) return;
+
+    this._totalKeystrokes++;
+
+    const expected = this.passage[this._cursorPos];
+    if (key === expected) {
+      this._ghostData.push({
+        charIndex: this._cursorPos,
+        ms: timestampMs,
+      });
+      this._cursorPos++;
+      this._correctKeystrokes++;
+      this._hasError = false;
+    } else {
+      this._errors++;
+      this._hasError = true;
+    }
+  }
+
+  getCurrentWpm(elapsedMs: number): number {
+    if (elapsedMs <= 0 || this._cursorPos === 0) return 0;
+    // Standard: 1 word = 5 characters
+    const words = this._cursorPos / 5;
+    return Math.round((words / elapsedMs) * 60000);
+  }
+
+  getAccuracy(): number {
+    if (this._totalKeystrokes === 0) return 0;
+    return this._correctKeystrokes / this._totalKeystrokes;
+  }
+
+  reset(): void {
+    this._cursorPos = 0;
+    this._errors = 0;
+    this._hasError = false;
+    this._totalKeystrokes = 0;
+    this._correctKeystrokes = 0;
+    this._ghostData = [];
+    this._isComposing = false;
+  }
+}
