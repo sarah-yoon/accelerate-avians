@@ -4,9 +4,9 @@ import type { GhostRacer } from "@/types";
 
 // Bot difficulty WPM ranges
 const BOT_WPM_RANGES = {
-  easy: { min: 20, max: 45 },
-  medium: { min: 40, max: 75 },
-  hard: { min: 60, max: 110 },
+  easy: { min: 15, max: 30 },
+  medium: { min: 30, max: 55 },
+  hard: { min: 55, max: 100 },
 };
 
 export async function GET(

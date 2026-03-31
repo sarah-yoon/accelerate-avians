@@ -61,7 +61,7 @@ async function main() {
 
   for (const passage of passages) {
     const created = await prisma.passage.create({ data: passage });
-    const botWpms = [40, 60, 80, 100];
+    const botWpms = [20, 25, 30, 40, 55, 70, 85, 100];
 
     for (const wpm of botWpms) {
       const botUser = await prisma.user.upsert({
