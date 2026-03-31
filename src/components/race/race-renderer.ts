@@ -4,7 +4,7 @@ import { drawCountdown } from "./countdown-overlay";
 import type { GhostDataPoint, RacePhase } from "@/types";
 
 const BASE_WIDTH = 480;
-const BASE_HEIGHT = 135;
+const BASE_HEIGHT = 200;
 const SPRITE_SIZE = 32;
 const MAX_LANES = 6;
 

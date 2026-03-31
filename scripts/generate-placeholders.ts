@@ -147,14 +147,14 @@ function generateBirdSprite(filename: string, colors: BirdColors) {
 }
 
 function generateBackground(filename: string, color1: string, color2: string) {
-  const canvas = createCanvas(480, 135);
+  const canvas = createCanvas(480, 200);
   const ctx = canvas.getContext("2d");
 
-  const gradient = ctx.createLinearGradient(0, 0, 0, 135);
+  const gradient = ctx.createLinearGradient(0, 0, 0, 200);
   gradient.addColorStop(0, color1);
   gradient.addColorStop(1, color2);
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 480, 135);
+  ctx.fillRect(0, 0, 480, 200);
 
   // Add some pixel clouds
   ctx.fillStyle = "#F0F0F0";
@@ -205,6 +205,16 @@ generateBirdSprite("bluebird.png", {
   K: "#FFD700",
   T: "#1A5276",
   H: "#E74C3C",
+});
+
+// Ghost — grey bird shape (same bird template, muted colors)
+generateBirdSprite("ghost.png", {
+  B: "#9E9E9E",
+  W: "#757575",
+  E: "#424242",
+  K: "#BDBDBD",
+  T: "#616161",
+  H: "#BDBDBD",
 });
 
 // Backgrounds
