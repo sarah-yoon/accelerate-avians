@@ -24,7 +24,7 @@ interface RawPassage { text: string; source: string; }
 
 function processPassage(raw: RawPassage) {
   const { text, source } = raw;
-  if (text.length < 150 || text.length > 400) return null;
+  if (text.length < 30 || text.length > 700) return null;
   if (!isAsciiOnly(text)) return null;
   const wordCount = text.split(/\s+/).length;
   const charCount = text.length;
