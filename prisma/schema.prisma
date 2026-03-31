@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Difficulty {
+  short
+  medium
+  long
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique
+  username    String   @unique
+  displayBird String   @default("robin")
+  createdAt   DateTime @default(now())
+  scores      Score[]
+
+  @@map("users")
+}
+
+model Passage {
+  id         String     @id @default(cuid())
+  text       String
+  source     String
+  wordCount  Int
+  charCount  Int
+  difficulty Difficulty
+  scores     Score[]
+
+  @@map("passages")
+}
+
+model Score {
+  id         String   @id @default(cuid())
+  userId     String
+  passageId  String
+  wpm        Int
+  accuracy   Float
+  ghostData  Json
+  createdAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  passage Passage @relation(fields: [passageId], references: [id])
+
+  @@index([passageId, wpm(sort: Desc)])
+  @@index([userId])
+  @@map("scores")
+}
