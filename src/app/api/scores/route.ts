@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       passageId,
       wpm: validation.wpm,
       accuracy: validation.accuracy,
-      ghostData: sampledGhostData,
+      ghostData: sampledGhostData as unknown as import("@prisma/client").Prisma.InputJsonValue,
     },
   });
 

@@ -27,6 +27,10 @@ export function useTyping(
   const [hasError, setHasError] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [wpm, setWpm] = useState(0);
+  const [accuracy, setAccuracy] = useState(0);
+  const [ghostData, setGhostData] = useState<GhostDataPoint[]>([]);
+  const [totalKeystrokes, setTotalKeystrokes] = useState(0);
+  const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -47,6 +51,10 @@ export function useTyping(
       setHasError(engine.hasError);
       setIsComplete(engine.isComplete);
       setWpm(engine.getCurrentWpm(elapsed));
+      setAccuracy(engine.getAccuracy());
+      setGhostData([...engine.ghostData]);
+      setTotalKeystrokes(engine.totalKeystrokes);
+      setCorrectKeystrokes(engine.correctKeystrokes);
     },
     [enabled, raceStartTime]
   );
@@ -65,19 +73,21 @@ export function useTyping(
     setHasError(false);
     setIsComplete(false);
     setWpm(0);
+    setAccuracy(0);
+    setGhostData([]);
+    setTotalKeystrokes(0);
+    setCorrectKeystrokes(0);
   }, []);
-
-  const engine = engineRef.current;
 
   return {
     cursorPos,
     hasError,
     isComplete,
     wpm,
-    accuracy: engine.getAccuracy(),
-    ghostData: engine.ghostData,
-    totalKeystrokes: engine.totalKeystrokes,
-    correctKeystrokes: engine.correctKeystrokes,
+    accuracy,
+    ghostData,
+    totalKeystrokes,
+    correctKeystrokes,
     handleKeyDown,
     handleCompositionStart,
     handleCompositionEnd,

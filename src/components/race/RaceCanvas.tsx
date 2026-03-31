@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect } from "react";
 import {
   drawRace,
   updateRacerPosition,
@@ -105,9 +105,24 @@ export function RaceCanvas({
     loadAssets();
   }, [playerBird, playerUsername, ghosts]);
 
-  // Animation loop
-  const animate = useCallback(
-    (timestamp: number) => {
+  // Store latest values in refs for the animation loop
+  const phaseRef = useRef(phase);
+  const countdownValueRef = useRef(countdownValue);
+  const playerProgressRef = useRef(playerProgress);
+  const ghostsDataRef = useRef(ghosts);
+  const totalCharsRef = useRef(totalChars);
+  const raceStartTimeRef = useRef(raceStartTime);
+
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { countdownValueRef.current = countdownValue; }, [countdownValue]);
+  useEffect(() => { playerProgressRef.current = playerProgress; }, [playerProgress]);
+  useEffect(() => { ghostsDataRef.current = ghosts; }, [ghosts]);
+  useEffect(() => { totalCharsRef.current = totalChars; }, [totalChars]);
+  useEffect(() => { raceStartTimeRef.current = raceStartTime; }, [raceStartTime]);
+
+  // Animation loop using refs to avoid stale closures and self-reference issues
+  useEffect(() => {
+    function animate(timestamp: number) {
       const canvas = canvasRef.current;
       if (!canvas || !imagesLoadedRef.current) {
         animFrameRef.current = requestAnimationFrame(animate);
@@ -115,7 +130,10 @@ export function RaceCanvas({
       }
 
       const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (!ctx) {
+        animFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
 
       const deltaMs = lastFrameTimeRef.current
         ? timestamp - lastFrameTimeRef.current
@@ -126,51 +144,48 @@ export function RaceCanvas({
 
       // Update player position
       if (racers[0]) {
-        updateRacerPosition(racers[0], playerProgress, deltaMs);
+        updateRacerPosition(racers[0], playerProgressRef.current, deltaMs);
       }
 
       // Update ghost positions
-      if (raceStartTime && phase === "racing") {
-        const elapsed = performance.now() - raceStartTime;
+      if (raceStartTimeRef.current && phaseRef.current === "racing") {
+        const elapsed = performance.now() - raceStartTimeRef.current;
         for (let i = 1; i < racers.length; i++) {
-          const ghost = ghosts[i - 1];
+          const ghost = ghostsDataRef.current[i - 1];
           if (ghost) {
             const ghostProgress = interpolateGhostProgress(
               ghost.ghostData,
               elapsed,
-              totalChars
+              totalCharsRef.current
             );
             updateRacerPosition(racers[i], ghostProgress, deltaMs);
           }
         }
       }
 
-      // Scroll parallax based on player progress delta (not absolute)
+      // Scroll parallax based on player progress delta
       const prevProgress = racers[0]?.progress ?? 0;
-      parallaxRef.current.update((playerProgress - prevProgress) * BASE_WIDTH);
+      parallaxRef.current.update((playerProgressRef.current - prevProgress) * BASE_WIDTH);
 
       const state: RaceRendererState = {
-        phase,
-        countdownValue,
+        phase: phaseRef.current,
+        countdownValue: countdownValueRef.current,
         racers,
-        totalChars,
+        totalChars: totalCharsRef.current,
       };
 
       drawRace(ctx, state, parallaxRef.current, deltaMs);
 
       animFrameRef.current = requestAnimationFrame(animate);
-    },
-    [phase, countdownValue, playerProgress, ghosts, totalChars, raceStartTime]
-  );
+    }
 
-  useEffect(() => {
     animFrameRef.current = requestAnimationFrame(animate);
     return () => {
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [animate]);
+  }, []);
 
   return (
     <canvas

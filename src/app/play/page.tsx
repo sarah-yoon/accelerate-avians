@@ -68,7 +68,7 @@ export default function PlayPage() {
                 hasError={race.hasError}
                 wpm={race.wpm}
                 accuracy={race.accuracy}
-                elapsedMs={race.raceStartTime ? performance.now() - race.raceStartTime : 0}
+                elapsedMs={race.elapsedMs ?? 0}
                 enabled={race.phase === "racing"}
                 onKeyDown={race.handleKeyDown}
                 onCompositionStart={race.handleCompositionStart}

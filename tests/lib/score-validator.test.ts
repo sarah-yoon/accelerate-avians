@@ -40,8 +40,10 @@ describe("validateScore", () => {
       correctKeystrokes: 50,
     });
     expect(result.valid).toBe(true);
-    expect(result.wpm).toBeGreaterThan(0);
-    expect(result.accuracy).toBeGreaterThan(0);
+    if (result.valid) {
+      expect(result.wpm).toBeGreaterThan(0);
+      expect(result.accuracy).toBeGreaterThan(0);
+    }
   });
 
   it("rejects WPM over 250", () => {
@@ -56,7 +58,9 @@ describe("validateScore", () => {
       correctKeystrokes: 50,
     });
     expect(result.valid).toBe(false);
-    expect(result.reason).toBe("WPM exceeds maximum of 250");
+    if (!result.valid) {
+      expect(result.reason).toBe("WPM exceeds maximum of 250");
+    }
   });
 
   it("rejects WPM below 25", () => {
@@ -71,7 +75,9 @@ describe("validateScore", () => {
       correctKeystrokes: 50,
     });
     expect(result.valid).toBe(false);
-    expect(result.reason).toBe("WPM below minimum of 25");
+    if (!result.valid) {
+      expect(result.reason).toBe("WPM below minimum of 25");
+    }
   });
 
   it("rejects ghostData with fewer than 10 entries", () => {
@@ -82,6 +88,8 @@ describe("validateScore", () => {
       correctKeystrokes: 50,
     });
     expect(result.valid).toBe(false);
-    expect(result.reason).toBe("ghostData must have at least 10 entries");
+    if (!result.valid) {
+      expect(result.reason).toBe("ghostData must have at least 10 entries");
+    }
   });
 });

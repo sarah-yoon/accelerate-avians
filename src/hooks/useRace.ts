@@ -17,6 +17,7 @@ interface UseRaceReturn {
   result: RaceResult | null;
   isLoading: boolean;
   raceStartTime: number | null;
+  elapsedMs: number;
   startRace: (difficulty?: string, samePassage?: boolean) => Promise<void>;
   handleKeyDown: (e: KeyboardEvent) => void;
   handleCompositionStart: () => void;
@@ -31,7 +32,9 @@ export function useRace(clerkId?: string): UseRaceReturn {
   const [result, setResult] = useState<RaceResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [raceStartTime, setRaceStartTime] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const elapsedFrameRef = useRef<number>(0);
 
   const typing = useTyping(
     passage?.text ?? "",
@@ -162,6 +165,17 @@ export function useRace(clerkId?: string): UseRaceReturn {
     [clerkId, typing, passage]
   );
 
+  // Update elapsedMs during racing
+  useEffect(() => {
+    if (phase !== "racing" || !raceStartTime) return;
+    const tick = () => {
+      setElapsedMs(performance.now() - raceStartTime);
+      elapsedFrameRef.current = requestAnimationFrame(tick);
+    };
+    elapsedFrameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(elapsedFrameRef.current);
+  }, [phase, raceStartTime]);
+
   // Cleanup timers
   useEffect(() => {
     return () => {
@@ -182,6 +196,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
     result,
     isLoading,
     raceStartTime,
+    elapsedMs,
     startRace,
     handleKeyDown: typing.handleKeyDown,
     handleCompositionStart: typing.handleCompositionStart,
