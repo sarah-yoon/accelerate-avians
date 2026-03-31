@@ -67,7 +67,7 @@ async function main() {
       const botUser = await prisma.user.upsert({
         where: { clerkId: `bot_${wpm}` },
         update: {},
-        create: { clerkId: `bot_${wpm}`, username: `bot_${wpm}wpm`, displayBird: wpm <= 60 ? "robin" : wpm <= 80 ? "canary" : "bluebird" },
+        create: { clerkId: `bot_${wpm}`, username: `bot_${wpm}wpm`, displayBird: "robot" },
       });
 
       const ghostData = generateBotGhostData(passage.charCount, wpm, passage.wordCount);
