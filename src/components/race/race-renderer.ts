@@ -139,21 +139,6 @@ export function drawRace(
       SPRITE_SIZE
     );
 
-    // Dither pattern for ghosts: draw checkerboard mask to clear alternating pixels
-    // Per spec: "not CSS opacity" — use pixel-level dithering
-    if (racer.isGhost) {
-      const imageData = ctx.getImageData(destX, destY, SPRITE_SIZE, SPRITE_SIZE);
-      for (let py = 0; py < SPRITE_SIZE; py++) {
-        for (let px = 0; px < SPRITE_SIZE; px++) {
-          if ((px + py) % 2 === 1) {
-            const idx = (py * SPRITE_SIZE + px) * 4;
-            imageData.data[idx + 3] = 0; // Set alpha to 0 for checkerboard
-          }
-        }
-      }
-      ctx.putImageData(imageData, destX, destY);
-    }
-
     // Draw username label (above bird)
     ctx.font = '6px "Press Start 2P", monospace';
     ctx.fillStyle = racer.isPlayer ? "#FFD700" : "#5A5A7A";
