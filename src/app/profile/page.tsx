@@ -30,158 +30,234 @@ export default function ProfilePage() {
 
   if (!isLoaded) {
     return (
-      <main className="flex items-center justify-center min-h-screen bg-pixel-black">
-        <p className="font-heading text-pixel-text-dim text-xs animate-pulse">
-          Loading...
-        </p>
+      <main className="flex items-center justify-center min-h-screen relative">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, #0A0A14 0%, #1A1A2E 50%, #0A0A14 100%)",
+          }}
+        />
+        <div className="relative z-10 animate-float">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/sprites/robin.png"
+            alt="Loading"
+            className="w-10 h-10 mx-auto mb-4"
+            style={{ imageRendering: "pixelated" }}
+          />
+          <p className="font-heading text-pixel-text-dim text-xs animate-pulse">
+            Loading...
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex flex-col items-center min-h-screen bg-pixel-black p-4">
-      <div className="w-full max-w-2xl">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <Link
-            href="/"
-            className="font-heading text-pixel-bird-yellow text-xs hover:text-pixel-bird-orange"
-          >
-            Home
-          </Link>
-          <h1 className="font-heading text-pixel-text-white text-sm">
-            Profile
-          </h1>
-          <Link
-            href="/play"
-            className="font-heading text-pixel-text-green text-[10px] hover:text-pixel-grass"
-          >
-            Play
-          </Link>
-        </div>
+    <main className="relative min-h-screen overflow-hidden">
+      {/* Background */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, #0A0A14 0%, #1A1A2E 50%, #2A2A3E 100%)",
+        }}
+      />
 
-        {loading && (
-          <div className="text-center mt-12">
-            <span className="font-heading text-pixel-text-dim text-xs animate-pulse">
-              Loading stats...
-            </span>
-          </div>
-        )}
+      {/* Subtle pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(52,152,219,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(52,152,219,0.4) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
 
-        {!loading && !stats && (
-          <div className="text-center mt-12">
-            <p className="font-typing text-pixel-text-dim text-sm mb-4">
-              No races yet!
-            </p>
+      <div className="relative z-10 flex flex-col items-center p-4">
+        <div className="w-full max-w-2xl">
+          {/* HUD Header */}
+          <div className="game-hud px-4 py-3 mb-6 flex justify-between items-center">
+            <Link
+              href="/"
+              className="font-heading text-pixel-bird-yellow text-xs hover:text-pixel-bird-orange text-glow-yellow"
+            >
+              Home
+            </Link>
+            <h1 className="font-heading text-pixel-text-white text-sm text-shadow-hard">
+              PLAYER STATS
+            </h1>
             <Link
               href="/play"
-              className="bg-pixel-grass text-pixel-black font-heading text-[10px] px-6 py-3 inline-block"
+              className="font-heading text-pixel-text-green text-[10px] hover:text-pixel-grass text-glow-green"
             >
-              Start Racing
+              Play
             </Link>
           </div>
-        )}
 
-        {!loading && stats && (
-          <>
-            {/* User info */}
-            <div className="bg-pixel-panel border-2 border-pixel-text-dim p-6 mb-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div
-                  className="w-16 h-16 border-2 border-pixel-bird-yellow"
+          {loading && (
+            <div className="text-center mt-12">
+              <div className="animate-float mb-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/sprites/robin.png"
+                  alt="Loading"
+                  className="w-10 h-10 mx-auto"
                   style={{ imageRendering: "pixelated" }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/sprites/${stats.displayBird}.png`}
-                    alt={stats.displayBird}
-                    className="w-full h-full object-contain"
-                    style={{ imageRendering: "pixelated" }}
-                  />
-                </div>
-                <div>
-                  <h2 className="font-heading text-pixel-text-white text-sm">
-                    {stats.username}
-                  </h2>
-                  <p className="font-typing text-pixel-text-dim text-xs">
-                    {stats.totalRaces} races completed
-                  </p>
-                </div>
+                />
               </div>
+              <span className="font-heading text-pixel-text-dim text-xs animate-pulse">
+                Loading stats...
+              </span>
+            </div>
+          )}
 
-              {/* Stats grid */}
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="font-heading text-[8px] text-pixel-text-dim mb-1">
-                    AVG WPM
-                  </p>
-                  <p className="font-heading text-lg text-pixel-text-green">
-                    {stats.avgWpm}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-heading text-[8px] text-pixel-text-dim mb-1">
-                    AVG ACC
-                  </p>
-                  <p className="font-heading text-lg text-pixel-text-white">
-                    {Math.round(stats.avgAccuracy * 100)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="font-heading text-[8px] text-pixel-text-dim mb-1">
-                    RACES
-                  </p>
-                  <p className="font-heading text-lg text-pixel-bird-yellow">
-                    {stats.totalRaces}
-                  </p>
-                </div>
+          {!loading && !stats && (
+            <div className="text-center mt-12 animate-slide-up">
+              <div className="pixel-panel-gold p-8 max-w-sm mx-auto">
+                <p className="font-heading text-pixel-bird-yellow text-xs mb-2">
+                  NO DATA
+                </p>
+                <p className="font-mono text-pixel-text-dim text-sm mb-6">
+                  Complete your first race to see stats!
+                </p>
+                <Link
+                  href="/play"
+                  className="pixel-btn font-heading text-[10px] px-8 py-3 text-pixel-black inline-block"
+                >
+                  Start Racing
+                </Link>
               </div>
             </div>
+          )}
 
-            {/* Recent races */}
-            <h3 className="font-heading text-pixel-text-white text-xs mb-3">
-              Recent Races
-            </h3>
-            <div className="bg-pixel-panel border-2 border-pixel-text-dim">
-              <div className="grid grid-cols-[1fr_80px_80px] gap-2 p-3 border-b border-pixel-text-dim">
-                <span className="font-heading text-[8px] text-pixel-text-dim">
-                  Date
-                </span>
-                <span className="font-heading text-[8px] text-pixel-text-dim text-right">
-                  WPM
-                </span>
-                <span className="font-heading text-[8px] text-pixel-text-dim text-right">
-                  ACC
-                </span>
+          {!loading && stats && (
+            <>
+              {/* Player card */}
+              <div className="pixel-panel-gold p-6 mb-6 animate-bounce-in">
+                <div className="flex items-center gap-6 mb-6">
+                  {/* Big bird sprite */}
+                  <div className="relative">
+                    <div className="w-20 h-20 border-4 border-pixel-bird-yellow bg-pixel-navy p-2 animate-float">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/sprites/${stats.displayBird}.png`}
+                        alt={stats.displayBird}
+                        className="w-full h-full object-contain"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                    </div>
+                    {/* Level badge */}
+                    <div className="absolute -bottom-2 -right-2 bg-pixel-bird-yellow text-pixel-black font-heading text-[8px] px-2 py-1">
+                      LV{Math.min(99, Math.floor(stats.totalRaces / 5) + 1)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="font-heading text-pixel-text-white text-base mb-1 text-shadow-hard">
+                      {stats.username}
+                    </h2>
+                    <p className="font-mono text-pixel-text-dim text-xs">
+                      {stats.totalRaces} races completed
+                    </p>
+                    <p className="font-mono text-pixel-bird-yellow text-xs mt-1">
+                      {stats.displayBird.charAt(0).toUpperCase() +
+                        stats.displayBird.slice(1)}{" "}
+                      main
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="pixel-panel p-4 text-center">
+                    <p className="font-heading text-[8px] text-pixel-text-dim mb-2">
+                      AVG WPM
+                    </p>
+                    <p className="font-heading text-xl text-pixel-text-green text-glow-green">
+                      {stats.avgWpm}
+                    </p>
+                  </div>
+                  <div className="pixel-panel p-4 text-center">
+                    <p className="font-heading text-[8px] text-pixel-text-dim mb-2">
+                      BEST WPM
+                    </p>
+                    <p className="font-heading text-xl text-pixel-bird-yellow text-glow-yellow">
+                      {stats.bestWpm}
+                    </p>
+                  </div>
+                  <div className="pixel-panel p-4 text-center">
+                    <p className="font-heading text-[8px] text-pixel-text-dim mb-2">
+                      AVG ACC
+                    </p>
+                    <p className="font-heading text-xl text-pixel-text-white">
+                      {Math.round(stats.avgAccuracy * 100)}%
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {stats.recentRaces.map((race, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-[1fr_80px_80px] gap-2 p-3 border-b border-pixel-text-dim/30 last:border-b-0"
-                >
-                  <span className="font-typing text-pixel-text-white text-xs">
-                    {new Date(race.createdAt).toLocaleDateString()}
-                  </span>
-                  <span className="font-heading text-[10px] text-pixel-text-green text-right">
-                    {race.wpm}
-                  </span>
-                  <span className="font-heading text-[10px] text-pixel-text-white text-right">
-                    {Math.round(race.accuracy * 100)}%
-                  </span>
+              {/* Recent races — game stats table */}
+              <div className="animate-slide-up">
+                <div className="bg-pixel-navy border-x-4 border-t-4 border-pixel-bird-blue px-4 py-2">
+                  <h3 className="font-heading text-pixel-bird-blue text-xs text-center">
+                    RACE LOG
+                  </h3>
                 </div>
-              ))}
+                <div className="pixel-panel">
+                  <div className="grid grid-cols-[1fr_80px_80px] gap-2 p-3 border-b-4 border-pixel-text-dim/30">
+                    <span className="font-heading text-[8px] text-pixel-bird-blue">
+                      DATE
+                    </span>
+                    <span className="font-heading text-[8px] text-pixel-bird-blue text-right">
+                      WPM
+                    </span>
+                    <span className="font-heading text-[8px] text-pixel-bird-blue text-right">
+                      ACC
+                    </span>
+                  </div>
 
-              {stats.recentRaces.length === 0 && (
-                <div className="p-4 text-center">
-                  <span className="font-typing text-pixel-text-dim text-sm">
-                    No recent races
-                  </span>
+                  {stats.recentRaces.map((race, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[1fr_80px_80px] gap-2 p-3 border-b border-pixel-text-dim/15 last:border-b-0 hover:bg-pixel-navy/50 transition-colors animate-slide-up"
+                      style={{ animationDelay: `${i * 0.05}s` }}
+                    >
+                      <span className="font-mono text-pixel-text-white text-xs">
+                        {new Date(race.createdAt).toLocaleDateString()}
+                      </span>
+                      <span className="font-heading text-[10px] text-pixel-text-green text-right">
+                        {race.wpm}
+                      </span>
+                      <span className="font-heading text-[10px] text-pixel-text-white text-right">
+                        {Math.round(race.accuracy * 100)}%
+                      </span>
+                    </div>
+                  ))}
+
+                  {stats.recentRaces.length === 0 && (
+                    <div className="p-6 text-center">
+                      <span className="font-mono text-pixel-text-dim text-sm">
+                        No recent races
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </>
-        )}
+              </div>
+
+              {/* Bottom action */}
+              <div className="mt-6 text-center">
+                <Link
+                  href="/play"
+                  className="pixel-btn font-heading text-[10px] px-8 py-3 text-pixel-black inline-block"
+                >
+                  Race Again
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </main>
   );
