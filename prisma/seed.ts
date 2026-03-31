@@ -1,7 +1,10 @@
+import "dotenv/config";
 import { PrismaClient, Difficulty } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import fallbackPassages from "./fallback-passages.json";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 function classifyDifficulty(wordCount: number): Difficulty {
   if (wordCount < 20) return "short";

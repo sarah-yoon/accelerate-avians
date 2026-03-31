@@ -5,7 +5,6 @@ import type { GhostDataPoint, RacePhase } from "@/types";
 
 const BASE_WIDTH = 480;
 const BASE_HEIGHT = 135;
-const LANE_HEIGHT = 28;
 const SPRITE_SIZE = 32;
 const MAX_LANES = 6;
 
@@ -87,10 +86,12 @@ export function drawRace(
   // Draw parallax background
   parallax.draw(ctx, BASE_WIDTH, BASE_HEIGHT);
 
-  // Draw lanes
+  // Draw lanes — evenly distributed across canvas height
   const laneCount = Math.min(racers.length, MAX_LANES);
+  const laneHeight = Math.floor(BASE_HEIGHT / Math.max(laneCount, 1));
+
   for (let i = 0; i < laneCount; i++) {
-    const laneY = i * LANE_HEIGHT;
+    const laneY = i * laneHeight;
 
     // Lane separator
     if (i > 0) {
@@ -107,7 +108,7 @@ export function drawRace(
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
     ctx.moveTo(BASE_WIDTH - 8, laneY);
-    ctx.lineTo(BASE_WIDTH - 8, laneY + LANE_HEIGHT);
+    ctx.lineTo(BASE_WIDTH - 8, laneY + laneHeight);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -115,8 +116,8 @@ export function drawRace(
   // Draw racers
   for (let i = 0; i < laneCount; i++) {
     const racer = racers[i];
-    const laneY = i * LANE_HEIGHT;
-    const birdY = laneY + (LANE_HEIGHT - SPRITE_SIZE) / 2;
+    const laneY = i * laneHeight;
+    const birdY = laneY + (laneHeight - SPRITE_SIZE) / 2;
 
     // Update sprite animation
     racer.sprite.update(deltaMs);
@@ -153,14 +154,14 @@ export function drawRace(
       ctx.putImageData(imageData, destX, destY);
     }
 
-    // Draw username label (above bird, per spec)
+    // Draw username label (above bird)
     ctx.font = '6px "Press Start 2P", monospace';
     ctx.fillStyle = racer.isPlayer ? "#FFD700" : "#5A5A7A";
     ctx.textAlign = "left";
     ctx.fillText(
       racer.username,
       Math.round(racer.renderedX),
-      laneY + 6
+      Math.round(birdY - 2)
     );
   }
 

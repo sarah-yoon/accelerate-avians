@@ -73,34 +73,32 @@ export function TypingArea({
         </span>
       </div>
 
-      {/* Passage text */}
+      {/* Passage text — shown as full paragraph, scrolls down as you type */}
       <div
         ref={containerRef}
-        className="font-typing text-base leading-relaxed max-h-32 overflow-y-auto"
+        className="text-base leading-relaxed max-h-40 overflow-y-auto"
+        style={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}
       >
-        {passage.split("").map((char, i) => {
-          let className = "text-pixel-text-dim"; // upcoming
-          if (i < cursorPos) {
-            className = "text-pixel-text-green"; // typed correctly
-          } else if (i === cursorPos && hasError) {
-            className = "text-pixel-bird-red bg-pixel-bird-red/20"; // error
-          }
-
-          const isCursor = i === cursorPos;
-
-          return (
+        <span className="text-pixel-text-green">
+          {passage.slice(0, cursorPos)}
+        </span>
+        {cursorPos < passage.length && (
+          <>
             <span
-              key={i}
-              className={className}
-              data-cursor={isCursor ? "true" : undefined}
+              data-cursor="true"
+              className={
+                hasError
+                  ? "text-pixel-bird-red bg-pixel-bird-red/20"
+                  : "border-l-2 border-pixel-bird-yellow text-pixel-text-dim"
+              }
             >
-              {isCursor && !hasError && (
-                <span className="border-l-2 border-pixel-bird-yellow animate-pulse" />
-              )}
-              {char === " " ? "\u00A0" : char}
+              {passage[cursorPos] === " " ? "\u00A0" : passage[cursorPos]}
             </span>
-          );
-        })}
+            <span className="text-pixel-text-dim">
+              {passage.slice(cursorPos + 1)}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

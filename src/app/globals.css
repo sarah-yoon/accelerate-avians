@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+@theme {
+  --color-pixel-sky: #87CEEB;
+  --color-pixel-deep-sky: #5B9BD5;
+  --color-pixel-cloud: #F0F0F0;
+  --color-pixel-grass: #4CAF50;
+  --color-pixel-dark-green: #388E3C;
+  --color-pixel-brown: #8B6914;
+  --color-pixel-bird-red: #E74C3C;
+  --color-pixel-bird-yellow: #FFD700;
+  --color-pixel-bird-blue: #3498DB;
+  --color-pixel-bird-orange: #FF8C00;
+  --color-pixel-navy: #1A1A2E;
+  --color-pixel-text-white: #E8E8E8;
+  --color-pixel-text-green: #66BB6A;
+  --color-pixel-text-dim: #5A5A7A;
+  --color-pixel-panel: #2A2A3E;
+  --color-pixel-black: #0A0A14;
+
+  --font-heading: "Press Start 2P", monospace;
+  --font-typing: "Silkscreen", monospace;
+}
+
 @layer base {
   * {
     image-rendering: pixelated;
@@ -8,33 +30,23 @@
   }
 
   body {
-    @apply bg-pixel-black text-pixel-text-white;
+    background-color: var(--color-pixel-black);
+    color: var(--color-pixel-text-white);
   }
 
-  /* Scrollbar styling for pixel art theme */
   ::-webkit-scrollbar {
     width: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-pixel-black;
+    background-color: var(--color-pixel-black);
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-pixel-text-dim;
+    background-color: var(--color-pixel-text-dim);
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-pixel-bird-yellow;
-  }
-}
-
-@layer utilities {
-  .pixel-border {
-    @apply border-2 border-pixel-text-dim;
-  }
-
-  .pixel-panel {
-    @apply bg-pixel-panel border-2 border-pixel-text-dim;
+    background-color: var(--color-pixel-bird-yellow);
   }
 }

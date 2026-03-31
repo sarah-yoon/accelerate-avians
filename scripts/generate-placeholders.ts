@@ -1,10 +1,6 @@
 /**
- * Generates minimal placeholder PNGs for development.
- * These should be replaced with real pixel art from itch.io CC0 packs.
- *
+ * Generates pixel art bird sprite PNGs for development.
  * Run: npx tsx scripts/generate-placeholders.ts
- *
- * Requirements: npm install canvas (node-canvas)
  */
 import { createCanvas } from "canvas";
 import { writeFileSync, mkdirSync } from "fs";
@@ -16,41 +12,133 @@ function ensureDir(dir: string) {
   mkdirSync(dir, { recursive: true });
 }
 
-function generateSpriteSheet(
-  filename: string,
-  bodyColor: string,
-  wingColor: string
-) {
-  // 4 frames, each 32x32 = 128x32 sprite sheet
+// Pixel art bird template — each row is a string of color codes
+// . = transparent, B = body, W = wing, E = eye, K = beak, T = tail, H = highlight
+const BIRD_FRAMES = [
+  // Frame 0: rest
+  [
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "..........BBBBB.................",
+    ".........BBBBBBB................",
+    "........BBBBBBBBKK..............",
+    "........BBBEBBBBBKK.............",
+    "........BBBBBBBBBK..............",
+    ".......HBBBBBBBB................",
+    ".......BBWWWWBBB................",
+    "......BBWWWWWBB.................",
+    "......BBWWWWWBB.................",
+    ".....TTTBBBBBB..................",
+    "......TTBBBB....................",
+    ".......BBB......................",
+    "................................",
+    "................................",
+  ],
+  // Frame 1: wing down
+  [
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "..........BBBBB.................",
+    ".........BBBBBBB................",
+    "........BBBBBBBBKK..............",
+    "........BBBEBBBBBKK.............",
+    "........BBBBBBBBBK..............",
+    ".......HBBBBBBBB................",
+    ".......BBBBBBBBB................",
+    "......BBBBBBBBB.................",
+    "......BBWWWWWBB.................",
+    ".....TTTBWWWWB..................",
+    "......TTBWWWB...................",
+    ".......BBB......................",
+    "................................",
+    "................................",
+  ],
+  // Frame 2: wing up
+  [
+    "................................",
+    "................................",
+    "......WWWW......................",
+    ".......WWWWW....................",
+    "..........BBBBB.................",
+    ".........BBBBBBB................",
+    "........BBBBBBBBKK..............",
+    "........BBBEBBBBBKK.............",
+    "........BBBBBBBBBK..............",
+    ".......HBBBBBBBB................",
+    ".......BBBBBBBBB................",
+    "......BBBBBBBBB.................",
+    "......BBBBBBBBB.................",
+    ".....TTTBBBBBB..................",
+    "......TTBBBB....................",
+    ".......BBB......................",
+    "................................",
+    "................................",
+  ],
+  // Frame 3: wing down (same as frame 1)
+  [
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "..........BBBBB.................",
+    ".........BBBBBBB................",
+    "........BBBBBBBBKK..............",
+    "........BBBEBBBBBKK.............",
+    "........BBBBBBBBBK..............",
+    ".......HBBBBBBBB................",
+    ".......BBBBBBBBB................",
+    "......BBBBBBBBB.................",
+    "......BBWWWWWBB.................",
+    ".....TTTBWWWWB..................",
+    "......TTBWWWB...................",
+    ".......BBB......................",
+    "................................",
+    "................................",
+  ],
+];
+
+interface BirdColors {
+  B: string; // body
+  W: string; // wing
+  E: string; // eye
+  K: string; // beak
+  T: string; // tail
+  H: string; // highlight/breast
+}
+
+function generateBirdSprite(filename: string, colors: BirdColors) {
   const canvas = createCanvas(128, 32);
   const ctx = canvas.getContext("2d");
 
+  const colorMap: Record<string, string> = {
+    B: colors.B,
+    W: colors.W,
+    E: colors.E,
+    K: colors.K,
+    T: colors.T,
+    H: colors.H,
+    ".": "",
+  };
+
   for (let frame = 0; frame < 4; frame++) {
-    const x = frame * 32;
+    const frameData = BIRD_FRAMES[frame];
+    const offsetX = frame * 32;
 
-    // Body
-    ctx.fillStyle = bodyColor;
-    ctx.fillRect(x + 8, 10, 16, 12);
-
-    // Head
-    ctx.fillRect(x + 20, 6, 8, 10);
-
-    // Eye
-    ctx.fillStyle = "#0A0A14";
-    ctx.fillRect(x + 24, 8, 2, 2);
-
-    // Beak
-    ctx.fillStyle = "#FFD700";
-    ctx.fillRect(x + 28, 10, 4, 3);
-
-    // Wing (animate position per frame)
-    ctx.fillStyle = wingColor;
-    const wingOffsets = [0, 3, -3, 3]; // rest, down, up, down
-    ctx.fillRect(x + 10, 12 + wingOffsets[frame], 10, 6);
-
-    // Tail
-    ctx.fillStyle = bodyColor;
-    ctx.fillRect(x + 4, 12, 6, 4);
+    for (let row = 0; row < frameData.length; row++) {
+      for (let col = 0; col < 32; col++) {
+        const char = frameData[row][col] || ".";
+        const color = colorMap[char];
+        if (color) {
+          ctx.fillStyle = color;
+          // Draw 2x pixels for chunkier pixel art look within 32x32
+          ctx.fillRect(offsetX + col, row * 2, 1, 2);
+        }
+      }
+    }
   }
 
   const buffer = canvas.toBuffer("image/png");
@@ -58,44 +146,27 @@ function generateSpriteSheet(
   console.log(`Generated ${filename}`);
 }
 
-function generateGhostSprite() {
-  const canvas = createCanvas(128, 32);
-  const ctx = canvas.getContext("2d");
-
-  for (let frame = 0; frame < 4; frame++) {
-    const x = frame * 32;
-
-    // Draw checkerboard dithered bird shape
-    ctx.fillStyle = "rgba(200, 200, 200, 0.6)";
-    for (let px = 0; px < 32; px++) {
-      for (let py = 0; py < 32; py++) {
-        if ((px + py) % 2 === 0) {
-          // Simple bird silhouette check
-          const bx = px - 8;
-          const by = py - 8;
-          if (bx >= 0 && bx < 20 && by >= 0 && by < 16) {
-            ctx.fillRect(x + px, py, 1, 1);
-          }
-        }
-      }
-    }
-  }
-
-  const buffer = canvas.toBuffer("image/png");
-  writeFileSync(join(PUBLIC, "sprites", "ghost.png"), buffer);
-  console.log("Generated ghost.png");
-}
-
 function generateBackground(filename: string, color1: string, color2: string) {
   const canvas = createCanvas(480, 135);
   const ctx = canvas.getContext("2d");
 
-  // Gradient background
   const gradient = ctx.createLinearGradient(0, 0, 0, 135);
   gradient.addColorStop(0, color1);
   gradient.addColorStop(1, color2);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 480, 135);
+
+  // Add some pixel clouds
+  ctx.fillStyle = "#F0F0F0";
+  // Cloud 1
+  ctx.fillRect(50, 20, 40, 8);
+  ctx.fillRect(55, 14, 30, 6);
+  // Cloud 2
+  ctx.fillRect(200, 35, 50, 8);
+  ctx.fillRect(210, 28, 30, 7);
+  // Cloud 3
+  ctx.fillRect(380, 15, 35, 8);
+  ctx.fillRect(385, 10, 25, 5);
 
   const buffer = canvas.toBuffer("image/png");
   writeFileSync(join(PUBLIC, "backgrounds", filename), buffer);
@@ -106,15 +177,39 @@ function generateBackground(filename: string, color1: string, color2: string) {
 ensureDir(join(PUBLIC, "sprites"));
 ensureDir(join(PUBLIC, "backgrounds"));
 
-// Birds — colors from spec palette
-generateSpriteSheet("robin.png", "#E74C3C", "#C0392B");
-generateSpriteSheet("canary.png", "#FFD700", "#FFA500");
-generateSpriteSheet("bluebird.png", "#3498DB", "#2980B9");
-generateGhostSprite();
+// Robin — red breast, brown body
+generateBirdSprite("robin.png", {
+  B: "#8B4513",
+  W: "#6B3410",
+  E: "#0A0A14",
+  K: "#FFD700",
+  T: "#5C3A1E",
+  H: "#E74C3C",
+});
+
+// Canary — yellow body
+generateBirdSprite("canary.png", {
+  B: "#FFD700",
+  W: "#FFA500",
+  E: "#0A0A14",
+  K: "#FF8C00",
+  T: "#DAA520",
+  H: "#FFED4A",
+});
+
+// Bluebird — blue body
+generateBirdSprite("bluebird.png", {
+  B: "#3498DB",
+  W: "#2176AE",
+  E: "#0A0A14",
+  K: "#FFD700",
+  T: "#1A5276",
+  H: "#E74C3C",
+});
 
 // Backgrounds
 generateBackground("bg-far.png", "#87CEEB", "#5B9BD5");
-generateBackground("bg-mid.png", "#5B9BD500", "#4CAF5040");
-generateBackground("bg-near.png", "#4CAF5000", "#388E3C80");
+generateBackground("bg-mid.png", "#87CEEB", "#87CEEB");
+generateBackground("bg-near.png", "#4CAF50", "#388E3C");
 
-console.log("\nDone! Replace these with real CC0 pixel art from itch.io.");
+console.log("\nDone! Sprites now look like actual birds.");
