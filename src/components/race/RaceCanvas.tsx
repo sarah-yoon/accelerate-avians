@@ -54,13 +54,18 @@ export function RaceCanvas({
   useEffect(() => {
     async function loadAssets() {
       try {
-        const [playerImg, ghostImg, bgFar, bgMid, bgNear] = await Promise.all([
+        // Load player sprite + backgrounds
+        const [playerImg, bgFar, bgMid, bgNear] = await Promise.all([
           loadImage(`/sprites/${playerBird}.png`),
-          loadImage("/sprites/ghost.png"),
           loadImage("/backgrounds/bg-far.png"),
           loadImage("/backgrounds/bg-mid.png"),
           loadImage("/backgrounds/bg-near.png"),
         ]);
+
+        // Load each ghost's own sprite (robot.png for bots, their displayBird for real players)
+        const ghostImgs = await Promise.all(
+          ghosts.map((ghost) => loadImage(`/sprites/${ghost.displayBird}.png`))
+        );
 
         // Setup parallax
         const parallax = new ParallaxRenderer();
@@ -81,11 +86,11 @@ export function RaceCanvas({
             isGhost: false,
             isPlayer: true,
           },
-          ...ghosts.map((ghost) => ({
+          ...ghosts.map((ghost, i) => ({
             id: ghost.id,
             username: ghost.username,
             sprite: new BirdSprite(4, 8),
-            spriteImage: ghostImg,
+            spriteImage: ghostImgs[i],
             progress: 0,
             renderedX: 8,
             isGhost: true,

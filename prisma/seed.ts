@@ -66,7 +66,7 @@ async function main() {
     for (const wpm of botWpms) {
       const botUser = await prisma.user.upsert({
         where: { clerkId: `bot_${wpm}` },
-        update: {},
+        update: { displayBird: "robot" },
         create: { clerkId: `bot_${wpm}`, username: `bot_${wpm}wpm`, displayBird: "robot" },
       });
 
