@@ -12,133 +12,173 @@ function ensureDir(dir: string) {
   mkdirSync(dir, { recursive: true });
 }
 
-// Pixel art bird template — each row is a string of color codes
-// . = transparent, B = body, W = wing, E = eye, K = beak, T = tail, H = highlight
-const BIRD_FRAMES = [
-  // Frame 0: rest
-  [
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "..........BBBBB.................",
-    ".........BBBBBBB................",
-    "........BBBBBBBBKK..............",
-    "........BBBEBBBBBKK.............",
-    "........BBBBBBBBBK..............",
-    ".......HBBBBBBBB................",
-    ".......BBWWWWBBB................",
-    "......BBWWWWWBB.................",
-    "......BBWWWWWBB.................",
-    ".....TTTBBBBBB..................",
-    "......TTBBBB....................",
-    ".......BBB......................",
-    "................................",
-    "................................",
-  ],
-  // Frame 1: wing down
-  [
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "..........BBBBB.................",
-    ".........BBBBBBB................",
-    "........BBBBBBBBKK..............",
-    "........BBBEBBBBBKK.............",
-    "........BBBBBBBBBK..............",
-    ".......HBBBBBBBB................",
-    ".......BBBBBBBBB................",
-    "......BBBBBBBBB.................",
-    "......BBWWWWWBB.................",
-    ".....TTTBWWWWB..................",
-    "......TTBWWWB...................",
-    ".......BBB......................",
-    "................................",
-    "................................",
-  ],
-  // Frame 2: wing up
-  [
-    "................................",
-    "................................",
-    "......WWWW......................",
-    ".......WWWWW....................",
-    "..........BBBBB.................",
-    ".........BBBBBBB................",
-    "........BBBBBBBBKK..............",
-    "........BBBEBBBBBKK.............",
-    "........BBBBBBBBBK..............",
-    ".......HBBBBBBBB................",
-    ".......BBBBBBBBB................",
-    "......BBBBBBBBB.................",
-    "......BBBBBBBBB.................",
-    ".....TTTBBBBBB..................",
-    "......TTBBBB....................",
-    ".......BBB......................",
-    "................................",
-    "................................",
-  ],
-  // Frame 3: wing down (same as frame 1)
-  [
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "..........BBBBB.................",
-    ".........BBBBBBB................",
-    "........BBBBBBBBKK..............",
-    "........BBBEBBBBBKK.............",
-    "........BBBBBBBBBK..............",
-    ".......HBBBBBBBB................",
-    ".......BBBBBBBBB................",
-    "......BBBBBBBBB.................",
-    "......BBWWWWWBB.................",
-    ".....TTTBWWWWB..................",
-    "......TTBWWWB...................",
-    ".......BBB......................",
-    "................................",
-    "................................",
-  ],
-];
-
-interface BirdColors {
-  B: string; // body
-  W: string; // wing
-  E: string; // eye
-  K: string; // beak
-  T: string; // tail
-  H: string; // highlight/breast
+// Helper: draw a single pixel
+function px(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, 1, 1);
 }
 
-function generateBirdSprite(filename: string, colors: BirdColors) {
-  const canvas = createCanvas(128, 32);
-  const ctx = canvas.getContext("2d");
+// Helper: draw a filled rectangle of pixels
+function rect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string,
+) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
 
-  const colorMap: Record<string, string> = {
-    B: colors.B,
-    W: colors.W,
-    E: colors.E,
-    K: colors.K,
-    T: colors.T,
-    H: colors.H,
-    ".": "",
-  };
+interface BirdPalette {
+  body: string;
+  wing: string;
+  breast: string;
+  beak: string;
+  eye: string;
+  tail: string;
+  belly: string;
+}
+
+/**
+ * Draw a pixel art bird at (ox, oy) within a 32x32 frame.
+ * The bird is ~16x14 pixels, centered in the frame.
+ * wingState: 0 = rest (wing mid), 1 = wing down, 2 = wing up
+ */
+function drawBird(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  palette: BirdPalette,
+  wingState: number,
+) {
+  const { body, wing, breast, beak, eye, tail, belly } = palette;
+
+  // Offset to center ~16x14 bird in 32x32 frame
+  const bx = ox + 8;
+  const by = oy + 9;
+
+  // === HEAD (top, toward right since bird faces right) ===
+  // Head: 5x5 round shape at top-right of bird
+  //   Row 0:  .BBB.
+  //   Row 1: BBBBB
+  //   Row 2: BBBBB
+  //   Row 3: BBBBB
+  //   Row 4:  BBB.
+  px(ctx, bx + 8, by + 0, body);
+  px(ctx, bx + 9, by + 0, body);
+  px(ctx, bx + 10, by + 0, body);
+
+  rect(ctx, bx + 7, by + 1, 5, 1, body);
+  rect(ctx, bx + 7, by + 2, 5, 1, body);
+  rect(ctx, bx + 7, by + 3, 5, 1, body);
+
+  px(ctx, bx + 8, by + 4, body);
+  px(ctx, bx + 9, by + 4, body);
+  px(ctx, bx + 10, by + 4, body);
+
+  // Eye — single pixel, row 2 of head
+  px(ctx, bx + 10, by + 2, eye);
+
+  // Beak — triangular, 3 pixels, pointing right from head
+  px(ctx, bx + 12, by + 2, beak);
+  px(ctx, bx + 12, by + 3, beak);
+  px(ctx, bx + 13, by + 3, beak);
+
+  // === BODY (oval, below and to the left of head) ===
+  // Body is ~9x6 oval
+  //   Row 5:  .BBBBBBB.
+  //   Row 6: BBBBBBBBB
+  //   Row 7: BBBBBBBBB
+  //   Row 8: BBBBBBBBB
+  //   Row 9:  BBBBBBBB
+  //   Row 10:  .BBBBB.
+
+  // Row 5
+  rect(ctx, bx + 3, by + 5, 8, 1, body);
+
+  // Row 6
+  rect(ctx, bx + 2, by + 6, 10, 1, body);
+
+  // Row 7
+  rect(ctx, bx + 2, by + 7, 10, 1, body);
+
+  // Row 8
+  rect(ctx, bx + 2, by + 8, 10, 1, body);
+
+  // Row 9
+  rect(ctx, bx + 3, by + 9, 8, 1, body);
+
+  // Row 10
+  rect(ctx, bx + 4, by + 10, 6, 1, body);
+
+  // === BREAST / BELLY highlight (front of body) ===
+  // Breast color on the front-facing chest area
+  px(ctx, bx + 9, by + 5, breast);
+  px(ctx, bx + 10, by + 5, breast);
+  px(ctx, bx + 10, by + 6, breast);
+  px(ctx, bx + 11, by + 6, breast);
+  px(ctx, bx + 10, by + 7, breast);
+  px(ctx, bx + 11, by + 7, breast);
+  px(ctx, bx + 11, by + 8, breast);
+  px(ctx, bx + 10, by + 8, breast);
+
+  // Belly (lighter underside)
+  rect(ctx, bx + 6, by + 9, 4, 1, belly);
+  rect(ctx, bx + 5, by + 10, 4, 1, belly);
+
+  // === TAIL (left side, 3 pixels) ===
+  px(ctx, bx + 1, by + 6, tail);
+  px(ctx, bx + 0, by + 7, tail);
+  px(ctx, bx + 1, by + 7, tail);
+  px(ctx, bx + 0, by + 8, tail);
+
+  // === WING ===
+  if (wingState === 0) {
+    // Rest: wing overlaid on middle of body
+    rect(ctx, bx + 4, by + 6, 4, 1, wing);
+    rect(ctx, bx + 3, by + 7, 5, 1, wing);
+    rect(ctx, bx + 4, by + 8, 4, 1, wing);
+    px(ctx, bx + 5, by + 9, wing);
+    px(ctx, bx + 6, by + 9, wing);
+  } else if (wingState === 1) {
+    // Wing down: wing hangs below body
+    rect(ctx, bx + 4, by + 7, 4, 1, wing);
+    rect(ctx, bx + 3, by + 8, 5, 1, wing);
+    rect(ctx, bx + 3, by + 9, 5, 1, wing);
+    rect(ctx, bx + 4, by + 10, 4, 1, wing);
+    rect(ctx, bx + 5, by + 11, 2, 1, wing);
+  } else if (wingState === 2) {
+    // Wing up: wing extends above body
+    rect(ctx, bx + 5, by + 2, 2, 1, wing);
+    rect(ctx, bx + 4, by + 3, 4, 1, wing);
+    rect(ctx, bx + 3, by + 4, 4, 1, wing);
+    rect(ctx, bx + 4, by + 5, 4, 1, wing);
+    rect(ctx, bx + 5, by + 6, 3, 1, wing);
+  }
+
+  // === FEET (tiny, 2 pixels each) ===
+  px(ctx, bx + 7, by + 11, body);
+  px(ctx, bx + 7, by + 12, body);
+  px(ctx, bx + 9, by + 11, body);
+  px(ctx, bx + 9, by + 12, body);
+}
+
+function generateBirdSprite(filename: string, palette: BirdPalette) {
+  const canvas = createCanvas(128, 32);
+  const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+
+  // Frame order: rest, wing-down, wing-up, wing-down
+  const wingStates = [0, 1, 2, 1];
 
   for (let frame = 0; frame < 4; frame++) {
-    const frameData = BIRD_FRAMES[frame];
-    const offsetX = frame * 32;
-
-    for (let row = 0; row < frameData.length; row++) {
-      for (let col = 0; col < 32; col++) {
-        const char = frameData[row][col] || ".";
-        const color = colorMap[char];
-        if (color) {
-          ctx.fillStyle = color;
-          // Draw 2x pixels for chunkier pixel art look within 32x32
-          ctx.fillRect(offsetX + col, row * 2, 1, 2);
-        }
-      }
-    }
+    drawBird(ctx, frame * 32, 0, palette, wingStates[frame]);
   }
 
   const buffer = canvas.toBuffer("image/png");
@@ -156,7 +196,7 @@ function generateBackground(filename: string, color1: string, color2: string) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 480, 200);
 
-  // Add some pixel clouds
+  // Pixel clouds
   ctx.fillStyle = "#F0F0F0";
   // Cloud 1
   ctx.fillRect(50, 20, 40, 8);
@@ -177,44 +217,48 @@ function generateBackground(filename: string, color1: string, color2: string) {
 ensureDir(join(PUBLIC, "sprites"));
 ensureDir(join(PUBLIC, "backgrounds"));
 
-// Robin — red breast, brown body
+// Robin -- brown body, red breast, dark wings, yellow beak
 generateBirdSprite("robin.png", {
-  B: "#8B4513",
-  W: "#6B3410",
-  E: "#0A0A14",
-  K: "#FFD700",
-  T: "#5C3A1E",
-  H: "#E74C3C",
+  body: "#8B4513",
+  wing: "#5C3A1E",
+  breast: "#E74C3C",
+  beak: "#FFD700",
+  eye: "#0A0A14",
+  tail: "#5C3A1E",
+  belly: "#C9956B",
 });
 
-// Canary — yellow body
+// Canary -- bright yellow body, orange wing tips, small orange beak
 generateBirdSprite("canary.png", {
-  B: "#FFD700",
-  W: "#FFA500",
-  E: "#0A0A14",
-  K: "#FF8C00",
-  T: "#DAA520",
-  H: "#FFED4A",
+  body: "#FFD700",
+  wing: "#FFA500",
+  breast: "#FFED4A",
+  beak: "#FF8C00",
+  eye: "#0A0A14",
+  tail: "#DAA520",
+  belly: "#FFF176",
 });
 
-// Bluebird — blue body
+// Bluebird -- blue body, reddish breast accent, white belly, yellow beak
 generateBirdSprite("bluebird.png", {
-  B: "#3498DB",
-  W: "#2176AE",
-  E: "#0A0A14",
-  K: "#FFD700",
-  T: "#1A5276",
-  H: "#E74C3C",
+  body: "#3498DB",
+  wing: "#1A5276",
+  breast: "#E74C3C",
+  beak: "#FFD700",
+  eye: "#0A0A14",
+  tail: "#1A5276",
+  belly: "#D6EAF8",
 });
 
-// Ghost — grey bird shape (same bird template, muted colors)
+// Ghost -- translucent grey bird shape
 generateBirdSprite("ghost.png", {
-  B: "#9E9E9E",
-  W: "#757575",
-  E: "#424242",
-  K: "#BDBDBD",
-  T: "#616161",
-  H: "#BDBDBD",
+  body: "#9E9E9E",
+  wing: "#757575",
+  breast: "#BDBDBD",
+  beak: "#BDBDBD",
+  eye: "#424242",
+  tail: "#616161",
+  belly: "#E0E0E0",
 });
 
 // Backgrounds
