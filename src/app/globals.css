@@ -436,15 +436,15 @@
 }
 
 @keyframes crt-flicker {
-  0%   { opacity: 0.10; }
-  13%  { opacity: 0.12; }
-  27%  { opacity: 0.08; }
-  41%  { opacity: 0.13; }
-  53%  { opacity: 0.09; }
-  67%  { opacity: 0.11; }
-  79%  { opacity: 0.08; }
-  88%  { opacity: 0.12; }
-  100% { opacity: 0.10; }
+  0%   { background-color: rgba(0, 0, 0, 0.10); }
+  13%  { background-color: rgba(0, 0, 0, 0.12); }
+  27%  { background-color: rgba(0, 0, 0, 0.08); }
+  41%  { background-color: rgba(0, 0, 0, 0.13); }
+  53%  { background-color: rgba(0, 0, 0, 0.09); }
+  67%  { background-color: rgba(0, 0, 0, 0.11); }
+  79%  { background-color: rgba(0, 0, 0, 0.08); }
+  88%  { background-color: rgba(0, 0, 0, 0.12); }
+  100% { background-color: rgba(0, 0, 0, 0.10); }
 }
 
 body.crt-active {
@@ -463,38 +463,36 @@ body.crt-booting {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  will-change: transform;
   transform: translateZ(0);
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.10) 0px,
-    rgba(0, 0, 0, 0.10) 1px,
-    transparent 1px,
-    transparent 3px
-  );
+  background:
+    /* Scanlines */
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.10) 0px,
+      rgba(0, 0, 0, 0.10) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    /* Vignette */
+    radial-gradient(
+      ellipse at center,
+      transparent 50%,
+      rgba(0, 0, 0, 0.15) 75%,
+      rgba(0, 0, 0, 0.45) 100%
+    );
 }
 
+/* Kept as a separate element in the DOM but hidden via CSS —
+   scanlines layer above now includes the vignette */
 .crt-overlay-vignette {
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  pointer-events: none;
-  will-change: transform;
-  transform: translateZ(0);
-  background: radial-gradient(
-    ellipse at center,
-    transparent 50%,
-    rgba(0, 0, 0, 0.15) 75%,
-    rgba(0, 0, 0, 0.45) 100%
-  );
+  display: none;
 }
 
 .crt-overlay-rgb {
   position: fixed;
   inset: 0;
-  z-index: 9997;
+  z-index: 9998;
   pointer-events: none;
-  will-change: transform;
   transform: translateZ(0);
   opacity: 0.04;
   background:
@@ -514,9 +512,8 @@ body.crt-booting {
   inset: 0;
   z-index: 9996;
   pointer-events: none;
-  will-change: opacity;
   transform: translateZ(0);
-  background: rgba(0, 0, 0, 1);
+  background-color: rgba(0, 0, 0, 0.10);
   animation: crt-flicker 0.15s infinite;
 }
 
