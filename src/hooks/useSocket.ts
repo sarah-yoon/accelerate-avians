@@ -17,7 +17,7 @@ export function useSocket(): UseSocketReturn {
   const { getToken } = useAuth();
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -29,10 +29,10 @@ export function useSocket(): UseSocketReturn {
         if (!token || cancelled) return;
 
         const sock = getSocket(token);
-        socketRef.current = sock;
 
         sock.on("connect", () => {
           if (!cancelled) {
+            setSocket(sock);
             setStatus("connected");
             setError(null);
           }
@@ -72,6 +72,9 @@ export function useSocket(): UseSocketReturn {
 
         if (!sock.connected) {
           sock.connect();
+        } else {
+          setSocket(sock);
+          setStatus("connected");
         }
       } catch {
         if (!cancelled) {
@@ -88,13 +91,13 @@ export function useSocket(): UseSocketReturn {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
-      disconnectSocket();
-      socketRef.current = null;
+      // Don't disconnect on unmount — keep socket alive across page navigation.
+      // The singleton in socket.ts persists and reconnects on the next page.
     };
   }, [getToken]);
 
   return {
-    socket: socketRef.current,
+    socket,
     status,
     error,
   };

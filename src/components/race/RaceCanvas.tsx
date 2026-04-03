@@ -24,6 +24,7 @@ interface RaceCanvasProps {
   totalChars: number;
   raceStartTime: number | null;
   wpm: number;
+  backgroundSeed?: number;
 }
 
 const MINIMAP_ICON = 24;
@@ -111,6 +112,7 @@ export function RaceCanvas({
   totalChars,
   raceStartTime,
   wpm,
+  backgroundSeed,
 }: RaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -142,6 +144,9 @@ export function RaceCanvas({
 
         // Parallax is now procedurally generated — just reset it
         parallaxRef.current = new ParallaxRenderer();
+        if (backgroundSeed !== undefined) {
+          parallaxRef.current.setSeed(backgroundSeed);
+        }
 
         // Setup racers
         const racers: Racer[] = [
@@ -177,7 +182,7 @@ export function RaceCanvas({
     }
 
     loadAssets();
-  }, [playerBird, playerUsername, ghosts]);
+  }, [playerBird, playerUsername, ghosts.length]);
 
   // Store latest values in refs for the animation loop
   const phaseRef = useRef(phase);

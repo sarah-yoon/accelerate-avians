@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import type { MultiplayerPlayer, Difficulty } from "@/types";
+
+const DIFFICULTIES: Difficulty[] = ["short", "medium", "long"];
 
 interface LobbyWaitingProps {
   roomCode: string;
@@ -8,6 +11,7 @@ interface LobbyWaitingProps {
   isHost: boolean;
   difficulty: Difficulty;
   onStartRace: () => void;
+  onChangeDifficulty?: (difficulty: Difficulty) => void;
   connectionError: string | null;
 }
 
@@ -17,12 +21,21 @@ export function LobbyWaiting({
   isHost,
   difficulty,
   onStartRace,
+  onChangeDifficulty,
   connectionError,
 }: LobbyWaitingProps) {
   const canStart = isHost && players.filter((p) => p.isConnected).length >= 2;
 
   return (
     <div className="flex flex-col items-center gap-6 p-8">
+      {/* Back button */}
+      <Link
+        href="/"
+        className="font-heading text-pixel-text-dim text-[10px] hover:text-pixel-text-white self-start"
+      >
+        ← BACK
+      </Link>
+
       {/* Room code display */}
       <div className="text-center">
         <p className="font-body text-pixel-text-dim text-sm uppercase tracking-widest">
@@ -39,13 +52,31 @@ export function LobbyWaiting({
         </button>
       </div>
 
-      {/* Difficulty badge */}
-      <div className="bg-pixel-panel rounded px-4 py-2">
-        <span className="font-body text-pixel-text-dim text-sm">Difficulty: </span>
-        <span className="font-heading text-pixel-text-white text-sm uppercase">
-          {difficulty}
-        </span>
-      </div>
+      {/* Difficulty selector (host) or badge (non-host) */}
+      {isHost && onChangeDifficulty ? (
+        <div className="flex gap-2">
+          {DIFFICULTIES.map((d) => (
+            <button
+              key={d}
+              onClick={() => onChangeDifficulty(d)}
+              className={`font-heading text-[10px] px-4 py-2 rounded transition-colors ${
+                difficulty === d
+                  ? "bg-pixel-bird-blue text-pixel-black"
+                  : "bg-pixel-panel text-pixel-text-dim hover:text-pixel-text-white"
+              }`}
+            >
+              {d.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-pixel-panel rounded px-4 py-2">
+          <span className="font-body text-pixel-text-dim text-sm">Difficulty: </span>
+          <span className="font-heading text-pixel-text-white text-sm uppercase">
+            {difficulty}
+          </span>
+        </div>
+      )}
 
       {/* Player list */}
       <div className="w-full max-w-sm">
@@ -58,12 +89,16 @@ export function LobbyWaiting({
               key={player.userId}
               className="flex items-center gap-3 bg-pixel-panel rounded px-4 py-3"
             >
-              <img
-                src={`/sprites/${player.displayBird}.png`}
-                alt={player.displayBird}
-                className="w-8 h-8 [image-rendering:pixelated]"
-                style={{ objectFit: "none", objectPosition: "0 0" }}
-              />
+              <div
+                className="w-8 h-8 [image-rendering:pixelated] overflow-hidden flex-shrink-0"
+              >
+                <img
+                  src={`/sprites/${player.displayBird}.png`}
+                  alt={player.displayBird}
+                  className="h-full [image-rendering:pixelated]"
+                  style={{ objectFit: "cover", objectPosition: "0 0", width: "auto" }}
+                />
+              </div>
               <span className="font-body text-pixel-text-white flex-1">
                 {player.username}
               </span>

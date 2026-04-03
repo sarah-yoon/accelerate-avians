@@ -5,7 +5,9 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001"
 let socket: Socket | null = null;
 
 export function getSocket(clerkToken: string): Socket {
-  if (socket?.connected) {
+  if (socket) {
+    // Update auth token in case it refreshed
+    socket.auth = { token: clerkToken };
     return socket;
   }
 

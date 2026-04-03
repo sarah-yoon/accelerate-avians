@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { useTyping } from "@/hooks/useTyping";
@@ -37,6 +37,7 @@ export function LobbyRace({
   onFinished,
 }: LobbyRaceProps) {
   const hasFinishedRef = useRef(false);
+  const [playerFinished, setPlayerFinished] = useState(false);
 
   const {
     cursorPos,
@@ -65,6 +66,7 @@ export function LobbyRace({
       !hasFinishedRef.current
     ) {
       hasFinishedRef.current = true;
+      setPlayerFinished(true);
       onFinished(ghostData, correctKeystrokes, totalKeystrokes);
     }
   }, [cursorPos, passage.charCount, racePhase, ghostData, correctKeystrokes, totalKeystrokes, onFinished]);
@@ -74,53 +76,95 @@ export function LobbyRace({
   const playerBird = currentPlayer?.displayBird ?? "robin";
   const playerUsername = currentPlayer?.username ?? "You";
 
-  // Build ghost racers from other players' progress
-  const ghosts: GhostRacer[] = players
-    .filter((p) => p.userId !== currentUserId)
-    .map((p) => {
-      const progress = playerProgresses[p.userId] ?? 0;
-      return {
-        id: p.userId,
-        username: p.username,
-        displayBird: p.displayBird,
-        wpm: 0,
-        ghostData: [],
-        isPersonalBest: false,
-        _liveProgress: progress,
-      } as GhostRacer & { _liveProgress: number };
-    });
+  // Memoize other players list so it only changes when players join/leave
+  const otherPlayers = useMemo(
+    () => players.filter((p) => p.userId !== currentUserId),
+    [players.length, currentUserId]
+  );
 
+  // Build ghost racers — memoize the base array, update progress via ref
+  const ghosts: GhostRacer[] = otherPlayers.map((p) => {
+    const progress = playerProgresses[p.userId] ?? 0;
+    return {
+      id: p.userId,
+      username: p.username,
+      displayBird: p.displayBird,
+      wpm: 0,
+      ghostData: [],
+      isPersonalBest: false,
+      _liveProgress: progress,
+    } as GhostRacer & { _liveProgress: number };
+  });
+
+  // Determine canvas phase — show "finished" when player completes to trigger confetti
   const playerProgress = passage.charCount > 0 ? cursorPos / passage.charCount : 0;
   const elapsedMs = raceStartedAt ? Date.now() - raceStartedAt : 0;
 
-  return (
-    <div className="flex flex-col items-center gap-4 p-4 w-full">
-      {/* Race canvas */}
-      <RaceCanvas
-        phase={racePhase === "countdown" ? "countdown" : "racing"}
-        countdownValue={countdownValue}
-        playerProgress={playerProgress}
-        playerBird={playerBird}
-        playerUsername={playerUsername}
-        ghosts={ghosts}
-        totalChars={passage.charCount}
-        raceStartTime={raceStartedAt}
-        wpm={wpm}
-      />
+  // Deterministic seed from passage ID so all players see the same background
+  const backgroundSeed = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < passage.id.length; i++) {
+      hash = ((hash << 5) - hash + passage.id.charCodeAt(i)) | 0;
+    }
+    return hash;
+  }, [passage.id]);
 
-      {/* Typing area */}
-      <TypingArea
-        passage={passage.text}
-        cursorPos={cursorPos}
-        hasError={hasError}
-        wpm={wpm}
-        accuracy={accuracy}
-        elapsedMs={elapsedMs}
-        enabled={racePhase === "racing"}
-        onKeyDown={handleKeyDown}
-        onCompositionStart={handleCompositionStart}
-        onCompositionEnd={handleCompositionEnd}
-      />
+  return (
+    <div className="w-full max-w-[900px]">
+      {/* Canvas + overlay container */}
+      <div className="mb-4 relative">
+        <RaceCanvas
+          phase={playerFinished ? "finished" : racePhase === "countdown" ? "countdown" : "racing"}
+          countdownValue={countdownValue}
+          playerProgress={playerProgress}
+          playerBird={playerBird}
+          playerUsername={playerUsername}
+          ghosts={ghosts}
+          totalChars={passage.charCount}
+          raceStartTime={raceStartedAt}
+          wpm={wpm}
+          backgroundSeed={backgroundSeed}
+        />
+      </div>
+
+      {/* Typing area or finished state */}
+      {playerFinished ? (
+        <div className="pixel-panel p-6 mb-4 text-center">
+          <p className="font-heading text-pixel-bird-yellow text-sm mb-3">
+            RACE COMPLETE!
+          </p>
+          <div className="flex justify-center gap-8 mb-4">
+            <div>
+              <p className="font-heading text-pixel-text-green text-2xl">{wpm}</p>
+              <p className="font-heading text-pixel-text-dim text-[8px]">WPM</p>
+            </div>
+            <div>
+              <p className="font-heading text-pixel-text-white text-2xl">
+                {Math.round(accuracy * 100)}%
+              </p>
+              <p className="font-heading text-pixel-text-dim text-[8px]">ACC</p>
+            </div>
+          </div>
+          <p className="font-heading text-pixel-text-dim text-[8px] animate-pulse">
+            WAITING FOR OTHER PLAYERS...
+          </p>
+        </div>
+      ) : (
+        <div className="pixel-panel p-4 mb-4">
+          <TypingArea
+            passage={passage.text}
+            cursorPos={cursorPos}
+            hasError={hasError}
+            wpm={wpm}
+            accuracy={accuracy}
+            elapsedMs={elapsedMs}
+            enabled={racePhase === "racing"}
+            onKeyDown={handleKeyDown}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+          />
+        </div>
+      )}
     </div>
   );
 }

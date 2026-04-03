@@ -213,7 +213,7 @@ export function drawRace(
   for (let i = 0; i < laneCount; i++) {
     const racer = racers[i];
     const laneY = raceAreaTop + i * laneHeight;
-    const birdY = laneY + laneHeight - SPRITE_SIZE - 2;
+    const birdY = laneY + Math.floor((laneHeight - SPRITE_SIZE) / 2);
 
     // World position of this racer
     const racerWorldX = racer.progress * BASE_WIDTH * TRACK_SCALE;

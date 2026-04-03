@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { useSocket } from "@/hooks/useSocket";
 import { useMultiplayerRace } from "@/hooks/useMultiplayerRace";
 import { LobbyWaiting } from "@/components/lobby/LobbyWaiting";
@@ -12,6 +14,7 @@ interface LobbyClientProps {
 }
 
 export function LobbyClient({ roomCode }: LobbyClientProps) {
+  const { user } = useUser();
   const { socket, status, error: socketError } = useSocket();
   const race = useMultiplayerRace(socket);
 
@@ -80,7 +83,29 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
   const currentUserId = race.myUserId ?? "";
 
   return (
-    <main className="min-h-screen bg-pixel-black flex flex-col items-center justify-center">
+    <main className="hidden md:flex flex-col items-center min-h-screen bg-pixel-black p-6">
+      {/* Game HUD header — same as solo */}
+      <div className="w-full max-w-[900px] game-hud flex justify-between items-center px-4 py-3 mb-6">
+        <Link href="/" className="game-menu-item !p-0 !pl-5 text-[8px]">
+          HOME
+        </Link>
+        <span className="font-heading text-pixel-bird-yellow text-[9px] text-glow-yellow">
+          {race.roomCode ? `ROOM: ${race.roomCode}` : "MULTIPLAYER"}
+        </span>
+        <div>
+          {user ? (
+            <Link href="/profile" className="game-menu-item !p-0 !pl-5 text-[8px]">
+              PROFILE
+            </Link>
+          ) : (
+            <Link href="/sign-in" className="game-menu-item !p-0 !pl-5 text-[8px]">
+              SIGN IN
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <div className="w-full max-w-[900px]">
       {race.lobbyPhase === "waiting" && race.roomCode && (
         <LobbyWaiting
           roomCode={race.roomCode}
@@ -115,6 +140,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
           roomCode={race.roomCode}
         />
       )}
+      </div>
     </main>
   );
 }

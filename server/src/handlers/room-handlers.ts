@@ -59,6 +59,39 @@ export function registerRoomHandlers(
     );
 
     if (!result.success) {
+      // If already in room, just send current room state instead of error
+      if (result.error === "Already in this room") {
+        const existingRoom = roomManager.getRoom(roomCode);
+        if (existingRoom) {
+          // Update socket ID in case it changed (e.g. page navigation)
+          const player = existingRoom.players.get(user.id);
+          if (player) {
+            player.socketId = socket.id;
+            player.isConnected = true;
+            player.disconnectedAt = null;
+          }
+          socket.data.roomCode = roomCode;
+          socket.join(roomCode);
+
+          const players = Array.from(existingRoom.players.values()).map((p) => ({
+            userId: p.userId,
+            username: p.username,
+            displayBird: p.displayBird,
+            isHost: p.isHost,
+            isConnected: p.isConnected,
+          }));
+
+          socket.emit("room-state", {
+            code: existingRoom.code,
+            status: existingRoom.status,
+            hostUserId: existingRoom.hostUserId,
+            yourUserId: user.id,
+            difficulty: existingRoom.difficulty,
+            players,
+          });
+          return;
+        }
+      }
       socket.emit("room-error", { message: result.error });
       return;
     }

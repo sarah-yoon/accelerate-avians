@@ -42,8 +42,8 @@ export default async function LandingPage() {
           <Link href="/play" className="game-menu-item !py-3 !text-center !pl-0">
             SOLO RACE
           </Link>
-          <Link href="/lobby/create" className="game-menu-item !py-3 !text-center !pl-0">
-            CREATE ROOM
+          <Link href="/multiplayer" className="game-menu-item !py-3 !text-center !pl-0">
+            MULTIPLAYER
           </Link>
           <Link href="/leaderboard" className="game-menu-item !py-3 !text-center !pl-0">
             LEADERBOARD

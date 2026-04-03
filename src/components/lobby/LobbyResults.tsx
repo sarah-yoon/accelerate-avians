@@ -76,12 +76,14 @@ export function LobbyResults({
                   </td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">
-                      <img
-                        src={`/sprites/${ranking.displayBird}.png`}
-                        alt={ranking.displayBird}
-                        className="w-6 h-6 [image-rendering:pixelated]"
-                        style={{ objectFit: "none", objectPosition: "0 0" }}
-                      />
+                      <div className="w-6 h-6 overflow-hidden flex-shrink-0">
+                        <img
+                          src={`/sprites/${ranking.displayBird}.png`}
+                          alt={ranking.displayBird}
+                          className="h-full [image-rendering:pixelated]"
+                          style={{ objectFit: "cover", objectPosition: "0 0", width: "auto" }}
+                        />
+                      </div>
                       <span className="font-body text-pixel-text-white text-sm">
                         {ranking.username}
                         {isMe && (

@@ -811,10 +811,18 @@ export class ParallaxRenderer {
   private layers: ProceduralLayer[] = [];
   private scrollX = 0;
   private generated = false;
+  private seed: number | null = null;
+
+  setSeed(seed: number): void {
+    this.seed = seed;
+  }
 
   generate(canvasWidth: number, canvasHeight: number): void {
     if (this.generated) return;
-    const gen = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+    const index = this.seed !== null
+      ? Math.abs(this.seed) % BACKGROUNDS.length
+      : Math.floor(Math.random() * BACKGROUNDS.length);
+    const gen = BACKGROUNDS[index];
     this.layers = gen(canvasWidth, canvasHeight);
     // Make every layer tile seamlessly
     for (const layer of this.layers) {
