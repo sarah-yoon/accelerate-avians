@@ -29,15 +29,12 @@
   }
 
   html {
-    background-color: #0A0A14;
-    background-color: var(--color-pixel-black, #0A0A14);
+    background-color: var(--color-pixel-black);
   }
 
   body {
-    background-color: #0A0A14;
-    background-color: var(--color-pixel-black, #0A0A14);
-    color: #E8E8E8;
-    color: var(--color-pixel-text-white, #E8E8E8);
+    background-color: var(--color-pixel-black);
+    color: var(--color-pixel-text-white);
   }
 
   ::-webkit-scrollbar {
@@ -390,8 +387,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #0A0A14;
-  background-color: var(--color-pixel-black, #0A0A14);
+  background-color: var(--color-pixel-black);
   padding: 24px;
   animation: screen-fade-in 0.3s ease-out;
 }
@@ -409,4 +405,139 @@
     transparent 16px
   );
   opacity: 0.4;
+}
+
+/* ==========================================
+   CRT EFFECT STYLES
+   (defined here so they're available during SSR,
+    not delayed until client hydration)
+   ========================================== */
+
+@keyframes crt-boot {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.005) scaleX(0.8);
+    filter: brightness(3);
+  }
+  40% {
+    opacity: 1;
+    transform: scaleY(0.8) scaleX(1);
+    filter: brightness(1.5);
+  }
+  70% {
+    transform: scaleY(1.02) scaleX(1);
+    filter: brightness(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes crt-flicker {
+  0%   { opacity: 0.10; }
+  13%  { opacity: 0.12; }
+  27%  { opacity: 0.08; }
+  41%  { opacity: 0.13; }
+  53%  { opacity: 0.09; }
+  67%  { opacity: 0.11; }
+  79%  { opacity: 0.08; }
+  88%  { opacity: 0.12; }
+  100% { opacity: 0.10; }
+}
+
+body.crt-active {
+  border-radius: 8px;
+  text-shadow:
+    1px 0 0.5px rgba(255, 0, 0, 0.06),
+    -1px 0 0.5px rgba(0, 255, 255, 0.06);
+}
+
+body.crt-booting {
+  animation: crt-boot 0.4s ease-out forwards;
+}
+
+.crt-overlay-scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.10) 0px,
+    rgba(0, 0, 0, 0.10) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.crt-overlay-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.15) 75%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+.crt-overlay-rgb {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.04;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 1) 0px,
+      rgba(255, 0, 0, 1) 1px,
+      rgba(0, 255, 0, 1) 1px,
+      rgba(0, 255, 0, 1) 2px,
+      rgba(0, 0, 255, 1) 2px,
+      rgba(0, 0, 255, 1) 3px
+    );
+}
+
+.crt-overlay-flicker {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 1);
+  animation: crt-flicker 0.15s infinite;
+}
+
+.crt-toggle {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10000;
+  font-family: var(--font-heading);
+  font-size: 7px;
+  padding: 6px 10px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.crt-toggle-on {
+  background: rgba(10, 10, 20, 0.8);
+  border-color: var(--color-pixel-text-green);
+  color: var(--color-pixel-text-green);
+}
+
+.crt-toggle-off {
+  background: rgba(10, 10, 20, 0.8);
+  border-color: var(--color-pixel-text-dim);
+  color: var(--color-pixel-text-dim);
+}
+
+.crt-toggle:hover {
+  border-color: var(--color-pixel-bird-yellow);
+  color: var(--color-pixel-bird-yellow);
 }
