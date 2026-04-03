@@ -4,9 +4,14 @@ import { drawCountdown } from "./countdown-overlay";
 import type { GhostDataPoint, RacePhase } from "@/types";
 
 const BASE_WIDTH = 480;
-const BASE_HEIGHT = 200;
-const SPRITE_SIZE = 32;
+const BASE_HEIGHT = 240;
+const SPRITE_SRC = 16;   // source sprite size
+const SPRITE_SIZE = 28;  // rendered size
 const MAX_LANES = 6;
+const MINIMAP_HEIGHT = 0; // minimap is now rendered outside the canvas
+
+// How many "screens" wide the virtual track is — higher = racers spread out more and leave screen faster
+const TRACK_SCALE = 5;
 
 export interface Racer {
   id: string;
@@ -44,7 +49,6 @@ export function interpolateGhostProgress(
 ): number {
   if (ghostData.length === 0 || totalChars === 0) return 0;
 
-  // Find surrounding data points
   let low = 0;
   let high = ghostData.length - 1;
 
@@ -53,7 +57,6 @@ export function interpolateGhostProgress(
     return ghostData[high].charIndex / totalChars;
   }
 
-  // Binary search for surrounding points
   while (low < high - 1) {
     const mid = Math.floor((low + high) / 2);
     if (ghostData[mid].ms <= elapsedMs) {
@@ -63,7 +66,6 @@ export function interpolateGhostProgress(
     }
   }
 
-  // Linear interpolation
   const p0 = ghostData[low];
   const p1 = ghostData[high];
   const t = (elapsedMs - p0.ms) / (p1.ms - p0.ms);
@@ -72,13 +74,85 @@ export function interpolateGhostProgress(
   return charIndex / totalChars;
 }
 
+// ==================== PARTICLE SYSTEM ====================
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  life: number;
+  maxLife: number;
+}
+
+const CONFETTI_COLORS = ["#FFD700", "#66BB6A", "#E74C3C", "#3498DB", "#FF8C00", "#E8E8E8"];
+
+export class ParticleSystem {
+  private particles: Particle[] = [];
+
+  burst(x: number, y: number, count: number) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.5 + Math.random() * 2.5;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.5, // upward bias
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        size: 4 + Math.floor(Math.random() * 5),
+        life: 0,
+        maxLife: 800 + Math.random() * 600,
+      });
+    }
+  }
+
+  update(deltaMs: number) {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life += deltaMs;
+      if (p.life >= p.maxLife) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+      p.x += p.vx * (deltaMs / 16.67);
+      p.y += p.vy * (deltaMs / 16.67);
+      p.vy += 0.06 * (deltaMs / 16.67); // gravity
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    for (const p of this.particles) {
+      const alpha = 1 - p.life / p.maxLife;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  get active() {
+    return this.particles.length > 0;
+  }
+
+  reset() {
+    this.particles = [];
+  }
+}
+
 export function drawRace(
   ctx: CanvasRenderingContext2D,
   state: RaceRendererState,
   parallax: ParallaxRenderer,
-  deltaMs: number
+  deltaMs: number,
+  particles?: ParticleSystem
 ): void {
   const { phase, racers } = state;
+
+  // Crisp pixel scaling — no blur on upscale
+  ctx.imageSmoothingEnabled = false;
 
   // Clear
   ctx.clearRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
@@ -86,12 +160,23 @@ export function drawRace(
   // Draw parallax background
   parallax.draw(ctx, BASE_WIDTH, BASE_HEIGHT);
 
-  // Draw lanes — evenly distributed across canvas height
+  // Find player for camera
+  const player = racers.find((r) => r.isPlayer);
+  const playerProgress = player?.progress ?? 0;
+
+  // Camera: player is always at ~30% of the screen width
+  const playerScreenX = BASE_WIDTH * 0.3;
+  const playerWorldX = playerProgress * BASE_WIDTH * TRACK_SCALE;
+  const cameraX = playerWorldX - playerScreenX;
+
+  // Draw lanes
   const laneCount = Math.min(racers.length, MAX_LANES);
-  const laneHeight = Math.floor(BASE_HEIGHT / Math.max(laneCount, 1));
+  const raceAreaTop = 0;
+  const raceAreaHeight = BASE_HEIGHT;
+  const laneHeight = Math.floor(raceAreaHeight / Math.max(laneCount, 1));
 
   for (let i = 0; i < laneCount; i++) {
-    const laneY = i * laneHeight;
+    const laneY = raceAreaTop + i * laneHeight;
 
     // Lane separator
     if (i > 0) {
@@ -103,51 +188,72 @@ export function drawRace(
       ctx.stroke();
     }
 
-    // Draw finish line
-    ctx.strokeStyle = "#5A5A7A";
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(BASE_WIDTH - 8, laneY);
-    ctx.lineTo(BASE_WIDTH - 8, laneY + laneHeight);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Draw checkered finish line (at end of virtual track, relative to camera)
+    const finishWorldX = BASE_WIDTH * TRACK_SCALE;
+    const finishScreenX = finishWorldX - cameraX;
+    const checkerWidth = 16;
+    const checkerSize = 6;
+    if (finishScreenX > -checkerWidth && finishScreenX < BASE_WIDTH + checkerWidth) {
+      for (let row = 0; row < Math.ceil(laneHeight / checkerSize); row++) {
+        for (let col = 0; col < Math.ceil(checkerWidth / checkerSize); col++) {
+          const isLight = (row + col) % 2 === 0;
+          ctx.fillStyle = isLight ? "#c8b8d0" : "#3d2a4a";
+          ctx.fillRect(
+            Math.round(finishScreenX - checkerWidth / 2 + col * checkerSize),
+            laneY + row * checkerSize,
+            checkerSize,
+            checkerSize
+          );
+        }
+      }
+    }
   }
 
-  // Draw racers
+  // Draw racers relative to camera
   for (let i = 0; i < laneCount; i++) {
     const racer = racers[i];
-    const laneY = i * laneHeight;
-    const birdY = laneY + (laneHeight - SPRITE_SIZE) / 2;
+    const laneY = raceAreaTop + i * laneHeight;
+    const birdY = laneY + laneHeight - SPRITE_SIZE - 2;
 
-    // Update sprite animation
+    // World position of this racer
+    const racerWorldX = racer.progress * BASE_WIDTH * TRACK_SCALE;
+    const screenX = racerWorldX - cameraX;
+
+    // Skip drawing if off-screen (but still update sprite)
     racer.sprite.update(deltaMs);
 
-    // Draw bird sprite
-    const srcX = racer.sprite.getSourceX(SPRITE_SIZE);
-    const destX = Math.round(racer.renderedX);
+    if (screenX < -SPRITE_SIZE || screenX > BASE_WIDTH + SPRITE_SIZE) {
+      continue; // off-screen — don't draw
+    }
+
+    // Draw bird sprite — detect source frame size from image height
+    const frameSrc = racer.spriteImage.height;
+    const srcX = racer.sprite.getSourceX(frameSrc);
+    const destX = Math.round(screenX);
     const destY = Math.round(birdY);
 
     ctx.drawImage(
       racer.spriteImage,
-      srcX,
-      0,
-      SPRITE_SIZE,
-      SPRITE_SIZE,
-      destX,
-      destY,
-      SPRITE_SIZE,
-      SPRITE_SIZE
+      srcX, 0, frameSrc, frameSrc,
+      destX, destY, SPRITE_SIZE, SPRITE_SIZE
     );
 
-    // Draw username label (above bird)
-    ctx.font = '6px "Press Start 2P", monospace';
-    ctx.fillStyle = racer.isPlayer ? "#FFD700" : "#5A5A7A";
+    // Draw username label (above bird) with background for readability
+    ctx.font = '5px "Press Start 2P", monospace';
+    const textWidth = ctx.measureText(racer.username).width;
+    const labelX = destX + (SPRITE_SIZE - textWidth) / 2;
+    const labelY = Math.round(birdY - 4);
+    ctx.fillStyle = "rgba(10, 10, 20, 0.55)";
+    ctx.fillRect(labelX - 2, labelY - 7, textWidth + 4, 10);
     ctx.textAlign = "left";
-    ctx.fillText(
-      racer.username,
-      Math.round(racer.renderedX),
-      Math.round(birdY - 2)
-    );
+    ctx.fillStyle = racer.isPlayer ? "#FFD700" : "#C0C0D0";
+    ctx.fillText(racer.username, labelX, labelY);
+  }
+
+  // Draw particles (confetti on finish)
+  if (particles) {
+    particles.update(deltaMs);
+    particles.draw(ctx);
   }
 
   // Draw countdown overlay if applicable

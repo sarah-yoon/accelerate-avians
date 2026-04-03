@@ -1,0 +1,262 @@
+// Prisma types
+import type { Server, Socket } from "socket.io";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  SocketData,
+} from "../types.js";
+import type { RoomManager } from "../rooms/room-manager.js";
+import type { RaceController } from "../race/race-controller.js";
+import { ProgressValidator } from "../race/progress-validator.js";
+import { prisma } from "../lib/prisma.js";
+
+type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+
+// One progress validator per active race
+const progressValidators = new Map<string, ProgressValidator>();
+
+export function registerRaceHandlers(
+  io: AppServer,
+  socket: AppSocket,
+  roomManager: RoomManager,
+  raceController: RaceController
+): void {
+  socket.on("start-race", async ({ roomCode }) => {
+    const room = roomManager.getRoom(roomCode);
+    if (!room) {
+      socket.emit("room-error", { message: "Room not found" });
+      return;
+    }
+
+    // Verify sender is the host
+    let hostPlayer = null;
+    for (const p of room.players.values()) {
+      if (p.socketId === socket.id) {
+        hostPlayer = p;
+        break;
+      }
+    }
+    if (!hostPlayer) {
+      socket.emit("room-error", { message: "Not in this room" });
+      return;
+    }
+    if (!hostPlayer.isHost) {
+      socket.emit("room-error", { message: "Only the host can start the race" });
+      return;
+    }
+
+    if (room.status !== "waiting") {
+      socket.emit("room-error", { message: "Race already started" });
+      return;
+    }
+
+    const connectedCount = Array.from(room.players.values()).filter(
+      (p) => p.isConnected
+    ).length;
+    if (connectedCount < 2) {
+      socket.emit("room-error", { message: "Need at least 2 players to start" });
+      return;
+    }
+
+    // Fetch a random passage matching the difficulty
+    const passage = await prisma.passage.findFirst({
+      where: { difficulty: room.difficulty },
+      orderBy: { id: "asc" },
+      skip: Math.floor(
+        Math.random() *
+          (await prisma.passage.count({ where: { difficulty: room.difficulty } }))
+      ),
+    });
+
+    if (!passage) {
+      socket.emit("room-error", { message: "No passages available for this difficulty" });
+      return;
+    }
+
+    // Create Match record in DB
+    const match = await prisma.match.create({
+      data: {
+        roomCode,
+        passageId: passage.id,
+        status: "racing",
+        startedAt: new Date(),
+      },
+    });
+
+    // Create MatchPlayer records for all connected players
+    const connectedPlayers = Array.from(room.players.values()).filter(
+      (p) => p.isConnected
+    );
+    await prisma.matchPlayer.createMany({
+      data: connectedPlayers.map((p) => ({
+        matchId: match.id,
+        userId: p.userId,
+        status: "racing" as const,
+      })),
+    });
+
+    // Start the race in controller
+    raceController.startRace(room, {
+      id: passage.id,
+      text: passage.text,
+      charCount: passage.charCount,
+      wordCount: passage.wordCount,
+    });
+
+    // Set up progress validator
+    progressValidators.set(roomCode, new ProgressValidator(passage.charCount));
+
+    // Set up 10Hz progress broadcast
+    room.progressBroadcastInterval = setInterval(() => {
+      const snapshot = raceController.getProgressSnapshot(roomCode);
+      if (snapshot.length > 0) {
+        io.to(roomCode).emit("player-progress", { players: snapshot });
+      }
+    }, 100);
+
+    // Emit race start to all players in the room
+    io.to(roomCode).emit("race-started", {
+      passage: {
+        id: passage.id,
+        text: passage.text,
+        charCount: passage.charCount,
+        wordCount: passage.wordCount,
+      },
+      countdownMs: 3000,
+    });
+  });
+
+  socket.on("typing-progress", ({ charIndex }) => {
+    const roomCode = socket.data.roomCode;
+    if (!roomCode) return;
+
+    const room = roomManager.getRoom(roomCode);
+    if (!room || room.status !== "racing") return;
+
+    const validator = progressValidators.get(roomCode);
+    if (!validator) return;
+
+    // Find userId by socket id
+    let userId: string | null = null;
+    for (const p of room.players.values()) {
+      if (p.socketId === socket.id) {
+        userId = p.userId;
+        break;
+      }
+    }
+    if (!userId) return;
+
+    const result = validator.validate(userId, charIndex);
+    if (!result.valid) return; // Silently drop invalid progress
+
+    raceController.updateCharIndex(roomCode, userId, charIndex);
+    roomManager.touchRoom(roomCode);
+  });
+
+  socket.on("player-finished", async ({ ghostData, correctKeystrokes, totalKeystrokes }) => {
+    const roomCode = socket.data.roomCode;
+    if (!roomCode) return;
+
+    const room = roomManager.getRoom(roomCode);
+    if (!room || room.status !== "racing") return;
+    if (!room.raceStartedAt) return;
+
+    // Find userId by socket id
+    let userId: string | null = null;
+    for (const p of room.players.values()) {
+      if (p.socketId === socket.id) {
+        userId = p.userId;
+        break;
+      }
+    }
+    if (!userId) return;
+
+    // Basic validation on keystroke counts
+    if (correctKeystrokes < 0 || totalKeystrokes < 0 || correctKeystrokes > totalKeystrokes) return;
+
+    const finishResult = raceController.playerFinished(roomCode, userId, {
+      ghostData,
+      correctKeystrokes,
+      totalKeystrokes,
+    });
+
+    if (!finishResult) return;
+
+    // Update MatchPlayer record in DB
+    const match = await prisma.match.findUnique({ where: { roomCode } });
+    if (match) {
+      await prisma.matchPlayer.updateMany({
+        where: { matchId: match.id, userId },
+        data: {
+          wpm: finishResult.wpm,
+          accuracy: finishResult.accuracy,
+          placement: finishResult.placement,
+          ghostData: ghostData as never,
+          status: "finished",
+          finishedAt: new Date(),
+        },
+      });
+    }
+
+    // Check if all players finished
+    if (raceController.allPlayersFinished(roomCode)) {
+      finishRace(io, roomCode, room, roomManager, raceController);
+    }
+  });
+}
+
+export async function finishRace(
+  io: AppServer,
+  roomCode: string,
+  room: NonNullable<ReturnType<RoomManager["getRoom"]>>,
+  roomManager: RoomManager,
+  raceController: RaceController,
+  isTimeout = false
+): Promise<void> {
+  // Clear timers
+  if (room.raceTimeoutTimer) {
+    clearTimeout(room.raceTimeoutTimer);
+    room.raceTimeoutTimer = null;
+  }
+  if (room.progressBroadcastInterval) {
+    clearInterval(room.progressBroadcastInterval);
+    room.progressBroadcastInterval = null;
+  }
+
+  const rankings = raceController.getRankings(roomCode, room);
+
+  // Update match status in DB
+  await prisma.match.update({
+    where: { roomCode },
+    data: { status: "completed" },
+  });
+
+  // Update DNF players in DB
+  const match = await prisma.match.findUnique({ where: { roomCode } });
+  if (match) {
+    for (const ranking of rankings) {
+      if (ranking.status === "dnf") {
+        await prisma.matchPlayer.updateMany({
+          where: { matchId: match.id, userId: ranking.userId },
+          data: { status: "abandoned" },
+        });
+      }
+    }
+  }
+
+  room.status = "completed";
+  roomManager.setRoomStatus(roomCode, "completed");
+
+  if (isTimeout) {
+    io.to(roomCode).emit("race-timeout", { rankings });
+  } else {
+    io.to(roomCode).emit("race-results", { rankings });
+  }
+
+  // Cleanup race state
+  progressValidators.delete(roomCode);
+  raceController.cleanupRace(roomCode);
+}
+
+export { progressValidators };

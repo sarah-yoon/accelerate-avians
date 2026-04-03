@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     await prisma.user.upsert({
       where: { clerkId: id },
       update: { username: displayName },
-      create: { clerkId: id, username: displayName, displayBird: "robin" },
+      create: { clerkId: id, username: displayName, displayBird: "sparrow" },
     });
   }
 

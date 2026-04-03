@@ -65,3 +65,42 @@ export interface ProfileStats {
 }
 
 export type RacePhase = "idle" | "countdown" | "racing" | "finished";
+
+// --- Multiplayer Types ---
+
+export type RoomStatus = "waiting" | "racing" | "completed" | "expired";
+
+export interface MultiplayerPlayer {
+  userId: string;
+  username: string;
+  displayBird: string;
+  isHost: boolean;
+  isConnected: boolean;
+}
+
+export interface RoomState {
+  code: string;
+  status: RoomStatus;
+  hostUserId: string;
+  yourUserId?: string;
+  difficulty: Difficulty;
+  players: MultiplayerPlayer[];
+  passage?: {
+    id: string;
+    text: string;
+    charCount: number;
+    wordCount: number;
+  };
+  raceStartedAt?: number;
+  yourCharIndex?: number;
+}
+
+export interface MultiplayerRanking {
+  userId: string;
+  username: string;
+  displayBird: string;
+  wpm: number | null;
+  accuracy: number | null;
+  placement: number;
+  status: "finished" | "dnf";
+}

@@ -3,12 +3,17 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { validateScore } from "@/lib/score-validator";
 import { sampleGhostData } from "@/lib/ghost-sampler";
+import { rateLimit } from "@/lib/rate-limit";
 import type { GhostDataPoint, ScoreSubmission } from "@/types";
 
 export async function POST(request: Request) {
   const { userId: clerkId } = await auth();
   if (!clerkId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!rateLimit(`scores:${clerkId}`, 1, 30_000)) {
+    return NextResponse.json({ error: "Too many submissions. Wait 30 seconds." }, { status: 429 });
   }
 
   const user = await prisma.user.findUnique({ where: { clerkId } });

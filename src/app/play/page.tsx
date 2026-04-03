@@ -1,46 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRace } from "@/hooks/useRace";
 import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { MobileInterstitial } from "@/components/MobileInterstitial";
+import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
 import type { Difficulty } from "@/types";
-
-type BotDifficulty = "easy" | "medium" | "hard";
 
 export default function PlayPage() {
   const { user } = useUser();
   const race = useRace(user?.id);
   const [selectedLength, setSelectedLength] = useState<Difficulty>("medium");
-  const [selectedBotDifficulty, setSelectedBotDifficulty] = useState<BotDifficulty>("easy");
+  const [resultOverlay, setResultOverlay] = useState(true);
+  const [playerBird, setPlayerBird] = useState("sparrow");
+  const [playerName, setPlayerName] = useState("Guest");
+
+  // Fetch player's profile (bird + username)
+  useEffect(() => {
+    if (!user) return;
+    async function fetchProfile() {
+      try {
+        const res = await fetch(`/api/profile/${user!.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.displayBird) setPlayerBird(data.displayBird);
+        if (data?.username) setPlayerName(data.username);
+      } catch { /* profile may not exist yet */ }
+    }
+    fetchProfile();
+  }, [user]);
+
+  // Reset overlay when a new result appears
+  useEffect(() => {
+    if (race.result) setResultOverlay(true);
+  }, [race.result]);
 
   return (
     <>
       <MobileInterstitial />
 
       <main className="hidden md:flex flex-col items-center min-h-screen bg-pixel-black p-6">
-        {/* Header */}
-        <div className="w-full max-w-[900px] flex justify-between items-center mb-6">
-          <Link
-            href="/"
-            className="font-heading text-pixel-bird-yellow text-[10px] hover:text-pixel-bird-orange"
-          >
-            ← Home
+        {/* Game HUD header */}
+        <div className="w-full max-w-[900px] game-hud flex justify-between items-center px-4 py-3 mb-6">
+          <Link href="/" className="game-menu-item !p-0 !pl-5 text-[8px]">
+            HOME
           </Link>
-          <span className="font-heading text-pixel-text-white text-[10px]">
-            Accelerate Avians
+          <span className="font-heading text-pixel-bird-yellow text-[9px] text-glow-yellow">
+            ACCELERATE, AVIANS
           </span>
-          <div className="flex gap-4">
+          <div>
             {user ? (
-              <Link href="/profile" className="font-heading text-[8px] text-pixel-text-dim hover:text-pixel-bird-yellow">
-                Profile
+              <Link href="/profile" className="game-menu-item !p-0 !pl-5 text-[8px]">
+                PROFILE
               </Link>
             ) : (
-              <Link href="/sign-in" className="font-heading text-[8px] text-pixel-text-dim hover:text-pixel-bird-yellow">
-                Sign In
+              <Link href="/sign-in" className="game-menu-item !p-0 !pl-5 text-[8px]">
+                SIGN IN
               </Link>
             )}
           </div>
@@ -48,19 +66,33 @@ export default function PlayPage() {
 
         {/* Race area */}
         <div className="w-full max-w-[900px]">
-          {/* Canvas */}
+          {/* Canvas + overlay container */}
           {race.passage && (
-            <div className="mb-4">
+            <div className="mb-4 relative">
               <RaceCanvas
                 phase={race.phase}
                 countdownValue={race.countdownValue}
                 playerProgress={race.playerProgress}
-                playerBird="robin"
-                playerUsername={user?.username ?? "Guest"}
+                playerBird={playerBird}
+                playerUsername={playerName}
                 ghosts={race.ghosts}
                 totalChars={race.passage.charCount}
                 raceStartTime={race.raceStartTime}
+                wpm={race.wpm}
               />
+
+              {/* Results overlay on top of canvas */}
+              {race.result && resultOverlay && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 animate-bounce-in" style={{ top: "40px" }}>
+                  <RaceResultsPanel
+                    result={race.result}
+                    isSignedIn={!!user}
+                    onRaceAgain={() => race.startRace(selectedLength, true)}
+                    onNewRace={() => race.startRace(selectedLength, false)}
+                    onClose={() => setResultOverlay(false)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -82,17 +114,18 @@ export default function PlayPage() {
             </div>
           )}
 
-          {/* Race setup */}
+          {/* Race setup — game menu style */}
           {race.phase === "idle" && !race.isLoading && !race.result && (
-            <div className="flex flex-col items-center mt-6">
+            <div className="flex flex-col items-center mt-6 animate-slide-up">
               <div className="pixel-panel p-8 w-full max-w-md">
-                <h2 className="font-heading text-pixel-bird-yellow text-[10px] text-center mb-8">
+                <h2 className="font-heading text-pixel-bird-yellow text-[10px] text-center mb-2 text-glow-yellow">
                   RACE SETUP
                 </h2>
+                <div className="game-divider mb-6" />
 
                 {/* Passage length */}
                 <div className="mb-6">
-                  <p className="font-heading text-[7px] text-pixel-text-dim mb-3 text-center">
+                  <p className="font-heading text-[7px] text-pixel-text-dim mb-3 text-center tracking-wider">
                     PASSAGE LENGTH
                   </p>
                   <div className="flex gap-2 justify-center">
@@ -100,10 +133,10 @@ export default function PlayPage() {
                       <button
                         key={d}
                         onClick={() => setSelectedLength(d)}
-                        className={`font-heading text-[7px] px-4 py-2 border-2 transition-all ${
+                        className={`font-heading text-[7px] px-4 py-2 transition-all ${
                           selectedLength === d
-                            ? "border-pixel-bird-yellow text-pixel-bird-yellow bg-pixel-navy"
-                            : "border-pixel-text-dim text-pixel-text-dim hover:text-pixel-text-white hover:border-pixel-text-white"
+                            ? "pixel-select-active"
+                            : "pixel-select"
                         }`}
                       >
                         {d.toUpperCase()}
@@ -112,42 +145,13 @@ export default function PlayPage() {
                   </div>
                 </div>
 
-                {/* Bot difficulty */}
-                <div className="mb-8">
-                  <p className="font-heading text-[7px] text-pixel-text-dim mb-3 text-center">
-                    BOT DIFFICULTY
-                  </p>
-                  <div className="flex gap-2 justify-center">
-                    {(["easy", "medium", "hard"] as const).map((d) => {
-                      const colors = {
-                        easy: { active: "border-pixel-text-green text-pixel-text-green", label: "EASY" },
-                        medium: { active: "border-pixel-bird-yellow text-pixel-bird-yellow", label: "MEDIUM" },
-                        hard: { active: "border-pixel-bird-red text-pixel-bird-red", label: "HARD" },
-                      };
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => setSelectedBotDifficulty(d)}
-                          className={`font-heading text-[7px] px-4 py-2 border-2 transition-all ${
-                            selectedBotDifficulty === d
-                              ? `${colors[d].active} bg-pixel-navy`
-                              : "border-pixel-text-dim text-pixel-text-dim hover:text-pixel-text-white hover:border-pixel-text-white"
-                          }`}
-                        >
-                          {colors[d].label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Start button */}
+                {/* Start button — arcade style */}
                 <div className="text-center">
                   <button
-                    onClick={() => race.startRace(selectedLength, false, selectedBotDifficulty)}
-                    className="pixel-btn font-heading text-[10px] px-10 py-3 text-pixel-black"
+                    onClick={() => race.startRace(selectedLength, false)}
+                    className="pixel-btn font-heading text-[10px] px-10 py-3 text-pixel-black animate-pulse-glow"
                   >
-                    START RACE
+                    ▶ START RACE
                   </button>
                 </div>
               </div>
@@ -156,58 +160,25 @@ export default function PlayPage() {
 
           {/* Loading */}
           {race.isLoading && (
-            <div className="flex justify-center mt-12">
-              <p className="font-heading text-pixel-text-dim text-[10px] animate-pulse">
-                Finding a passage...
+            <div className="flex flex-col items-center mt-12">
+              <p className="font-heading text-pixel-bird-yellow text-[10px] animate-pulse text-glow-yellow">
+                LOADING RACE...
               </p>
+              <div className="mt-4 w-48 h-2 bg-pixel-navy overflow-hidden">
+                <div className="h-full bg-pixel-text-green animate-pulse" style={{ width: "60%" }} />
+              </div>
             </div>
           )}
 
-          {/* Results */}
-          {race.result && (
-            <div className="pixel-panel p-6 mt-4 max-w-md mx-auto">
-              <h2 className="font-heading text-pixel-bird-yellow text-[10px] mb-6 text-center">
-                RACE COMPLETE
-              </h2>
-              <div className="grid grid-cols-2 gap-6 text-center mb-8">
-                <div>
-                  <p className="font-heading text-[7px] text-pixel-text-dim mb-2">WPM</p>
-                  <p className="font-heading text-xl text-pixel-text-green">{race.result.wpm}</p>
-                </div>
-                <div>
-                  <p className="font-heading text-[7px] text-pixel-text-dim mb-2">ACCURACY</p>
-                  <p className="font-heading text-xl text-pixel-text-white">
-                    {Math.round(race.result.accuracy * 100)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="font-heading text-[7px] text-pixel-text-dim mb-2">PLACE</p>
-                  <p className="font-heading text-xl text-pixel-bird-yellow">
-                    {race.result.placement}/{race.result.totalRacers}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-heading text-[7px] text-pixel-text-dim mb-2">STATUS</p>
-                  <p className="font-heading text-sm text-pixel-text-white">
-                    {!user && "Sign in to save"}
-                    {user && (race.result.isPersonalBest ? "New PB!" : "Saved")}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => race.startRace(selectedLength, true, selectedBotDifficulty)}
-                  className="pixel-btn font-heading text-[8px] px-6 py-2 text-pixel-black"
-                >
-                  RACE AGAIN
-                </button>
-                <button
-                  onClick={() => race.startRace(selectedLength, false, selectedBotDifficulty)}
-                  className="font-heading text-[8px] px-6 py-2 border-2 border-pixel-text-dim text-pixel-text-white hover:border-pixel-bird-yellow"
-                >
-                  NEW BIRD
-                </button>
-              </div>
+          {/* Results — below canvas when overlay is dismissed */}
+          {race.result && !resultOverlay && (
+            <div className="mt-4 max-w-md mx-auto">
+              <RaceResultsPanel
+                result={race.result}
+                isSignedIn={!!user}
+                onRaceAgain={() => race.startRace(selectedLength, true)}
+                onNewRace={() => race.startRace(selectedLength, false)}
+              />
             </div>
           )}
         </div>

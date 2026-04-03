@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Press_Start_2P } from "next/font/google";
+import { CrtEffect } from "@/components/CrtEffect";
 import "./globals.css";
 
 const pressStart = Press_Start_2P({
@@ -10,7 +11,7 @@ const pressStart = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "Accelerate Avians",
+  title: "Accelerate, Avians",
   description: "A pixel art bird typing racer",
 };
 
@@ -20,10 +21,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+    >
       <html lang="en" className={`${pressStart.variable}`}>
         <body className="bg-pixel-black text-pixel-text-white min-h-screen font-mono">
           {children}
+          <CrtEffect />
         </body>
       </html>
     </ClerkProvider>

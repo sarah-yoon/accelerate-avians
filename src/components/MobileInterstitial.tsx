@@ -18,7 +18,7 @@ export function MobileInterstitial() {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-pixel-black p-8 md:hidden">
       <h1 className="font-heading text-pixel-bird-yellow text-sm text-center mb-6">
-        Accelerate Avians
+        Accelerate, Avians
       </h1>
       <p className="font-typing text-pixel-text-white text-center mb-2">
         is a desktop typing game.

@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 import type { Difficulty } from "@/types";
 
 const VALID_DIFFICULTIES: Difficulty[] = ["short", "medium", "long"];
 
 export async function GET(request: Request) {
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for") ?? "unknown";
+  if (!rateLimit(`passages:${ip}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
   const { searchParams } = new URL(request.url);
   const difficulty = searchParams.get("difficulty") as Difficulty | null;
 

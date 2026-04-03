@@ -6,6 +6,9 @@ import fallbackPassages from "./fallback-passages.json";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
+const EBIRD_API_KEY = process.env.EBIRD_API_KEY;
+const EBIRD_BASE = "https://api.ebird.org/v2";
+
 function classifyDifficulty(wordCount: number): Difficulty {
   if (wordCount < 20) return "short";
   if (wordCount <= 45) return "medium";
@@ -51,11 +54,80 @@ function generateBotGhostData(charCount: number, targetWpm: number, wordCount: n
   return points;
 }
 
+// Fetch bird species descriptions from eBird API
+async function fetchEbirdPassages(): Promise<RawPassage[]> {
+  if (!EBIRD_API_KEY) {
+    console.log("No EBIRD_API_KEY set, skipping eBird fetch.");
+    return [];
+  }
+
+  console.log("Fetching species from eBird API...");
+  const passages: RawPassage[] = [];
+
+  try {
+    // Get recent notable observations to find interesting species
+    const regionsRes = await fetch(`${EBIRD_BASE}/ref/region/list/subnational1/US`, {
+      headers: { "X-eBirdApiToken": EBIRD_API_KEY },
+    });
+
+    if (!regionsRes.ok) {
+      console.warn("Failed to fetch eBird regions:", regionsRes.status);
+      return [];
+    }
+
+    // Fetch taxonomy for species descriptions
+    const taxRes = await fetch(`${EBIRD_BASE}/ref/taxonomy/ebird?fmt=json&cat=species`, {
+      headers: { "X-eBirdApiToken": EBIRD_API_KEY },
+    });
+
+    if (!taxRes.ok) {
+      console.warn("Failed to fetch eBird taxonomy:", taxRes.status);
+      return [];
+    }
+
+    const taxonomy = await taxRes.json() as { comName: string; sciName: string; familyComName: string; order: string }[];
+
+    // Pick a random sample of species and generate typing passages from their info
+    const sampled = taxonomy.sort(() => Math.random() - 0.5).slice(0, 200);
+
+    for (const species of sampled) {
+      // Build a passage from the taxonomic info
+      const facts = [
+        `The ${species.comName} (${species.sciName}) belongs to the ${species.familyComName} family.`,
+        `The ${species.comName} is classified in the order ${species.order}. Its scientific name is ${species.sciName}, and it is part of the ${species.familyComName} family.`,
+        `Among the ${species.familyComName}, the ${species.comName} stands out. Known scientifically as ${species.sciName}, this bird belongs to the order ${species.order}.`,
+      ];
+
+      const text = facts[Math.floor(Math.random() * facts.length)];
+      if (text.length >= 30 && text.length <= 700 && isAsciiOnly(text)) {
+        passages.push({ text, source: species.comName });
+      }
+    }
+
+    console.log(`Fetched ${passages.length} passages from eBird API.`);
+  } catch (err) {
+    console.warn("eBird API error, using fallback:", err);
+  }
+
+  return passages;
+}
+
 async function main() {
   console.log("Seeding database...");
 
-  const allRaw: RawPassage[] = [...fallbackPassages];
-  const passages = allRaw.map(processPassage).filter((p): p is NonNullable<typeof p> => p !== null);
+  // Try eBird API first, fall back to local JSON
+  const ebirdPassages = await fetchEbirdPassages();
+  const allRaw: RawPassage[] = [...ebirdPassages, ...fallbackPassages];
+
+  // Deduplicate by text
+  const seen = new Set<string>();
+  const uniqueRaw = allRaw.filter((p) => {
+    if (seen.has(p.text)) return false;
+    seen.add(p.text);
+    return true;
+  });
+
+  const passages = uniqueRaw.map(processPassage).filter((p): p is NonNullable<typeof p> => p !== null);
 
   console.log(`Processing ${passages.length} passages...`);
 

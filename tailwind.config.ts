@@ -10,12 +10,8 @@ const config: Config = {
     extend: {
       colors: {
         pixel: {
-          sky: "#87CEEB",
-          "deep-sky": "#5B9BD5",
-          cloud: "#F0F0F0",
           grass: "#4CAF50",
           "dark-green": "#388E3C",
-          brown: "#8B6914",
           "bird-red": "#E74C3C",
           "bird-yellow": "#FFD700",
           "bird-blue": "#3498DB",
@@ -26,6 +22,9 @@ const config: Config = {
           "text-dim": "#5A5A7A",
           panel: "#2A2A3E",
           black: "#0A0A14",
+          gold: "#FFD700",
+          silver: "#C0C0C0",
+          bronze: "#CD7F32",
         },
       },
       fontFamily: {

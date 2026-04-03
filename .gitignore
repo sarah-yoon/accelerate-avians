@@ -41,3 +41,11 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# socket.io server
+/server/node_modules
+/server/dist
+/server/.next
+
+# Sentry Config File
+.env.sentry-build-plugin

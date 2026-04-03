@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { AuthMenu } from "@/components/AuthMenu";
 
 async function getLeaderboardPreview() {
   try {
@@ -24,95 +25,70 @@ export default async function LandingPage() {
   const topScores = await getLeaderboardPreview();
 
   return (
-    <main className="relative min-h-screen overflow-hidden sky-bg">
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-16">
-
+    <main className="game-screen relative overflow-hidden">
+      <div className="relative z-10 flex flex-col items-center">
         {/* Title */}
-        <h1 className="font-heading text-pixel-bird-yellow text-xl md:text-3xl text-center text-glow-yellow mb-1">
-          Accelerate
-        </h1>
-        <h1 className="font-heading text-pixel-text-white text-xl md:text-3xl text-center text-shadow-hard mb-4">
-          Avians
-        </h1>
-
-        <p className="text-pixel-navy text-sm mb-12 text-shadow-hard opacity-70">
-          Type fast. Fly faster.
-        </p>
-
-        {/* Bird sprites */}
-        <div className="flex gap-6 mb-10">
-          {["robin", "canary", "bluebird"].map((bird, i) => (
-            <div key={bird} className="animate-float" style={{ animationDelay: `${i * 0.4}s` }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/sprites/${bird}.png`}
-                alt={bird}
-                className="w-12 h-12"
-                style={{ imageRendering: "pixelated" }}
-              />
-            </div>
-          ))}
+        <div className="mb-2 animate-bounce-in">
+          <h1 className="font-heading text-pixel-bird-yellow text-xl md:text-3xl text-center text-glow-yellow leading-relaxed">
+            Accelerate,
+          </h1>
+          <h1 className="font-heading text-pixel-text-white text-xl md:text-3xl text-center text-shadow-hard">
+            Avians
+          </h1>
         </div>
 
-        {/* Play button */}
-        <Link
-          href="/play"
-          className="pixel-btn font-heading text-sm px-12 py-4 mb-16 inline-block text-pixel-black tracking-wider animate-pulse-glow"
-        >
-          PLAY
-        </Link>
+        {/* Game menu */}
+        <nav className="w-56 mb-12">
+          <Link href="/play" className="game-menu-item !py-3 !text-center !pl-0">
+            SOLO RACE
+          </Link>
+          <Link href="/lobby/create" className="game-menu-item !py-3 !text-center !pl-0">
+            CREATE ROOM
+          </Link>
+          <Link href="/leaderboard" className="game-menu-item !py-3 !text-center !pl-0">
+            LEADERBOARD
+          </Link>
+          <AuthMenu />
+        </nav>
 
-        {/* Leaderboard preview */}
+        {/* High score ticker */}
         {topScores.length > 0 && (
-          <div className="w-full max-w-sm">
-            <h2 className="font-heading text-pixel-bird-yellow text-[10px] text-center mb-3">
-              HIGH SCORES
+          <div className="w-full max-w-xs animate-slide-up">
+            <div className="game-divider mb-4" />
+            <h2 className="font-heading text-pixel-text-dim text-[8px] text-center mb-3 tracking-widest">
+              — TOP SCORES —
             </h2>
-            <div className="pixel-panel p-4">
+            <div className="space-y-1">
               {topScores.map((score, i) => {
                 const rankColor =
                   i === 0 ? "text-pixel-gold" : i === 1 ? "text-pixel-silver" : i === 2 ? "text-pixel-bronze" : "text-pixel-text-dim";
                 return (
                   <div
                     key={score.id}
-                    className="flex justify-between items-center py-2 border-b border-pixel-text-dim/20 last:border-b-0"
+                    className="flex justify-between items-center px-2 py-1.5"
                   >
                     <div className="flex items-center gap-3">
-                      <span className={`font-heading text-[10px] ${rankColor} w-4`}>
-                        {i + 1}
+                      <span className={`font-heading text-[8px] ${rankColor} w-4`}>
+                        {i + 1}.
                       </span>
-                      <span className="text-pixel-text-white text-sm">
+                      <span className="text-pixel-text-white text-xs">
                         {score.user.username}
                       </span>
                     </div>
-                    <span className="font-heading text-[10px] text-pixel-text-green">
-                      {score.wpm} WPM
+                    <span className="font-heading text-[8px] text-pixel-text-green">
+                      {score.wpm}
                     </span>
                   </div>
                 );
               })}
             </div>
-            <div className="text-center mt-3">
-              <Link
-                href="/leaderboard"
-                className="font-heading text-[8px] text-pixel-text-dim hover:text-pixel-bird-yellow"
-              >
-                View Full Leaderboard
-              </Link>
-            </div>
           </div>
         )}
 
-        {/* Nav */}
-        <nav className="flex gap-6 mt-10">
-          <Link href="/sign-in" className="font-heading text-[8px] text-pixel-text-dim hover:text-pixel-text-white">
-            Sign In
-          </Link>
-          <Link href="/leaderboard" className="font-heading text-[8px] text-pixel-text-dim hover:text-pixel-text-white">
-            Leaderboard
-          </Link>
-        </nav>
+        {/* Press start prompt */}
+        <p className="font-heading text-[7px] text-pixel-text-dim mt-10 animate-blink text-center">
+          SELECT AN OPTION
+        </p>
       </div>
     </main>
   );
