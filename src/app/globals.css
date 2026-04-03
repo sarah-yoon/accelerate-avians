@@ -463,37 +463,33 @@ body.crt-booting {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  transform: translateZ(0);
-  background:
-    /* Scanlines */
-    repeating-linear-gradient(
-      0deg,
-      rgba(0, 0, 0, 0.10) 0px,
-      rgba(0, 0, 0, 0.10) 1px,
-      transparent 1px,
-      transparent 3px
-    ),
-    /* Vignette */
-    radial-gradient(
-      ellipse at center,
-      transparent 50%,
-      rgba(0, 0, 0, 0.15) 75%,
-      rgba(0, 0, 0, 0.45) 100%
-    );
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.10) 0px,
+    rgba(0, 0, 0, 0.10) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 
-/* Kept as a separate element in the DOM but hidden via CSS —
-   scanlines layer above now includes the vignette */
 .crt-overlay-vignette {
-  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.15) 75%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
 }
 
 .crt-overlay-rgb {
   position: fixed;
   inset: 0;
-  z-index: 9998;
+  z-index: 9999;
   pointer-events: none;
-  transform: translateZ(0);
   opacity: 0.04;
   background:
     repeating-linear-gradient(
@@ -510,9 +506,8 @@ body.crt-booting {
 .crt-overlay-flicker {
   position: fixed;
   inset: 0;
-  z-index: 9996;
+  z-index: 9999;
   pointer-events: none;
-  transform: translateZ(0);
   background-color: rgba(0, 0, 0, 0.10);
   animation: crt-flicker 0.15s infinite;
 }
