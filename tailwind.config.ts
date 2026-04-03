@@ -21,7 +21,7 @@ const config: Config = {
           "text-green": "#66BB6A",
           "text-dim": "#5A5A7A",
           panel: "#2A2A3E",
-          black: "#0A0A14",
+          black: "#0C0C0F",
           gold: "#FFD700",
           silver: "#C0C0C0",
           bronze: "#CD7F32",
