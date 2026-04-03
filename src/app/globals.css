@@ -463,6 +463,8 @@ body.crt-booting {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
+  will-change: transform;
+  transform: translateZ(0);
   background: repeating-linear-gradient(
     0deg,
     rgba(0, 0, 0, 0.10) 0px,
@@ -475,8 +477,10 @@ body.crt-booting {
 .crt-overlay-vignette {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9998;
   pointer-events: none;
+  will-change: transform;
+  transform: translateZ(0);
   background: radial-gradient(
     ellipse at center,
     transparent 50%,
@@ -488,8 +492,10 @@ body.crt-booting {
 .crt-overlay-rgb {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9997;
   pointer-events: none;
+  will-change: transform;
+  transform: translateZ(0);
   opacity: 0.04;
   background:
     repeating-linear-gradient(
@@ -506,8 +512,10 @@ body.crt-booting {
 .crt-overlay-flicker {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9996;
   pointer-events: none;
+  will-change: opacity;
+  transform: translateZ(0);
   background: rgba(0, 0, 0, 1);
   animation: crt-flicker 0.15s infinite;
 }
