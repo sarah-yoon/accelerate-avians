@@ -28,6 +28,10 @@
     -moz-osx-font-smoothing: auto;
   }
 
+  html {
+    background-color: var(--color-pixel-black);
+  }
+
   body {
     background-color: var(--color-pixel-black);
     color: var(--color-pixel-text-white);
