@@ -35,6 +35,8 @@ interface UseMultiplayerRaceReturn {
   startRace: () => void;
   sendProgress: (charIndex: number) => void;
   sendFinished: (ghostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
+  playAgain: () => void;
+  leaveLobby: () => void;
 }
 
 export function useMultiplayerRace(
@@ -73,7 +75,13 @@ export function useMultiplayerRace(
       }
       setDifficulty(state.difficulty);
 
-      if (state.passage) {
+      if (state.status === "waiting") {
+        setLobbyPhase("waiting");
+        setPassage(null);
+        setRankings(null);
+        setPlayerProgresses({});
+        setRaceStartedAt(null);
+      } else if (state.passage) {
         setPassage(state.passage);
       }
       if (state.raceStartedAt) {
@@ -228,6 +236,30 @@ export function useMultiplayerRace(
     [socket]
   );
 
+  const playAgain = useCallback(() => {
+    if (!socket || !roomCode) return;
+    // Reset local state for a new race
+    setLobbyPhase("waiting");
+    setPassage(null);
+    setRankings(null);
+    setPlayerProgresses({});
+    setRaceStartedAt(null);
+    setReconnectCharIndex(null);
+    socket.emit("play-again", { roomCode });
+  }, [socket, roomCode]);
+
+  const leaveLobby = useCallback(() => {
+    if (!socket || !roomCode) return;
+    socket.emit("leave-room", { roomCode });
+    setRoomCode(null);
+    setLobbyPhase("waiting");
+    setPlayers([]);
+    setHostUserId(null);
+    setPassage(null);
+    setRankings(null);
+    setConnectionError(null);
+  }, [socket, roomCode]);
+
   return {
     roomCode,
     lobbyPhase,
@@ -248,5 +280,7 @@ export function useMultiplayerRace(
     startRace,
     sendProgress,
     sendFinished,
+    playAgain,
+    leaveLobby,
   };
 }

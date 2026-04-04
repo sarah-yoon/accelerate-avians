@@ -6,12 +6,16 @@ interface LobbyResultsProps {
   rankings: MultiplayerRanking[];
   currentUserId: string;
   roomCode: string;
+  isHost: boolean;
+  onPlayAgain?: () => void;
 }
 
 export function LobbyResults({
   rankings,
   currentUserId,
   roomCode,
+  isHost,
+  onPlayAgain,
 }: LobbyResultsProps) {
   const myResult = rankings.find((r) => r.userId === currentUserId);
 
@@ -113,6 +117,19 @@ export function LobbyResults({
 
       {/* Actions */}
       <div className="flex gap-4">
+        {isHost && onPlayAgain && (
+          <button
+            onClick={onPlayAgain}
+            className="font-heading text-sm bg-pixel-text-green text-pixel-black px-8 py-2 rounded hover:bg-pixel-grass transition-colors"
+          >
+            PLAY AGAIN
+          </button>
+        )}
+        {!isHost && (
+          <p className="font-heading text-pixel-text-dim text-[10px] animate-pulse">
+            WAITING FOR HOST...
+          </p>
+        )}
         <a
           href="/"
           className="font-heading text-sm text-pixel-text-dim hover:text-pixel-text-white px-6 py-2 border border-pixel-text-dim rounded transition-colors"

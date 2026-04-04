@@ -8,13 +8,11 @@ import { TypingArea } from "@/components/typing/TypingArea";
 import { MobileInterstitial } from "@/components/MobileInterstitial";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
-import { useLoadingCursor } from "@/hooks/useLoadingCursor";
 import type { Difficulty } from "@/types";
 
 export default function PlayPage() {
   const { user } = useUser();
   const race = useRace(user?.id);
-  useLoadingCursor(race.isLoading);
   const [selectedLength, setSelectedLength] = useState<Difficulty>("medium");
   const [resultOverlay, setResultOverlay] = useState(true);
   const [playerBird, setPlayerBird] = useState("sparrow");

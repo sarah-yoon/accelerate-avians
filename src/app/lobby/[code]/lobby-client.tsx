@@ -8,7 +8,6 @@ import { useMultiplayerRace } from "@/hooks/useMultiplayerRace";
 import { LobbyWaiting } from "@/components/lobby/LobbyWaiting";
 import { LobbyRace } from "@/components/lobby/LobbyRace";
 import { LobbyResults } from "@/components/lobby/LobbyResults";
-import { useLoadingCursor } from "@/hooks/useLoadingCursor";
 
 interface LobbyClientProps {
   roomCode: string;
@@ -18,7 +17,6 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
   const { user } = useUser();
   const { socket, status, error: socketError } = useSocket();
   const race = useMultiplayerRace(socket);
-  useLoadingCursor(status === "connecting" || status === "reconnecting");
 
   // Auto-join the room when socket connects
   useEffect(() => {
@@ -115,6 +113,10 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
           isHost={race.isHost}
           difficulty={race.difficulty}
           onStartRace={race.startRace}
+          onLeaveLobby={() => {
+            race.leaveLobby();
+            window.location.href = "/multiplayer";
+          }}
           connectionError={race.connectionError}
         />
       )}
@@ -140,6 +142,8 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
           rankings={race.rankings}
           currentUserId={currentUserId}
           roomCode={race.roomCode}
+          isHost={race.isHost}
+          onPlayAgain={race.playAgain}
         />
       )}
       </div>

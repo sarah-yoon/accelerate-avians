@@ -96,6 +96,8 @@ export interface ClientToServerEvents {
     correctKeystrokes: number;
     totalKeystrokes: number;
   }) => void;
+  "leave-room": (payload: { roomCode: string }) => void;
+  "play-again": (payload: { roomCode: string }) => void;
 }
 
 export interface SocketData {

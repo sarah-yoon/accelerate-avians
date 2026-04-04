@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PixelCrown } from "@/components/PixelCrown";
 import type { MultiplayerPlayer, Difficulty } from "@/types";
 
 const DIFFICULTIES: Difficulty[] = ["short", "medium", "long"];
@@ -11,6 +12,7 @@ interface LobbyWaitingProps {
   isHost: boolean;
   difficulty: Difficulty;
   onStartRace: () => void;
+  onLeaveLobby: () => void;
   onChangeDifficulty?: (difficulty: Difficulty) => void;
   connectionError: string | null;
 }
@@ -21,6 +23,7 @@ export function LobbyWaiting({
   isHost,
   difficulty,
   onStartRace,
+  onLeaveLobby,
   onChangeDifficulty,
   connectionError,
 }: LobbyWaitingProps) {
@@ -28,13 +31,13 @@ export function LobbyWaiting({
 
   return (
     <div className="flex flex-col items-center gap-6 p-8">
-      {/* Back button */}
-      <Link
-        href="/"
+      {/* Leave lobby */}
+      <button
+        onClick={onLeaveLobby}
         className="font-heading text-pixel-text-dim text-[10px] hover:text-pixel-text-white self-start"
       >
-        ← BACK
-      </Link>
+        ← LEAVE
+      </button>
 
       {/* Room code display */}
       <div className="text-center">
@@ -102,11 +105,7 @@ export function LobbyWaiting({
               <span className="font-body text-pixel-text-white flex-1">
                 {player.username}
               </span>
-              {player.isHost && (
-                <span className="font-heading text-pixel-bird-yellow text-[10px]">
-                  HOST
-                </span>
-              )}
+              {player.isHost && <PixelCrown size={14} />}
               {!player.isConnected && (
                 <span className="font-heading text-pixel-text-dim text-[10px]">
                   DISCONNECTED

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
-import { useLoadingCursor } from "@/hooks/useLoadingCursor";
 import type { Difficulty } from "@/types";
 
 export function CreateRoomClient() {
@@ -11,7 +10,6 @@ export function CreateRoomClient() {
   const { socket, status } = useSocket();
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [isCreating, setIsCreating] = useState(false);
-  useLoadingCursor(status === "connecting" || isCreating);
 
   useEffect(() => {
     if (!socket) return;

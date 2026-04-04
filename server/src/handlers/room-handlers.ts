@@ -127,4 +127,89 @@ export function registerRoomHandlers(
       players,
     });
   });
+
+  socket.on("leave-room", ({ roomCode }) => {
+    const room = roomManager.getRoom(roomCode);
+    if (!room) return;
+
+    let userId: string | null = null;
+    for (const p of room.players.values()) {
+      if (p.socketId === socket.id) {
+        userId = p.userId;
+        break;
+      }
+    }
+    if (!userId) return;
+
+    const result = roomManager.removePlayer(roomCode, userId);
+    socket.data.roomCode = null;
+    socket.leave(roomCode);
+
+    if (result && !result.roomDeleted) {
+      io.to(roomCode).emit("player-left", { userId });
+      // If host transferred, send updated room state
+      if (result.newHostUserId) {
+        const updatedRoom = roomManager.getRoom(roomCode);
+        if (updatedRoom) {
+          const players = Array.from(updatedRoom.players.values()).map((p) => ({
+            userId: p.userId,
+            username: p.username,
+            displayBird: p.displayBird,
+            isHost: p.isHost,
+            isConnected: p.isConnected,
+          }));
+          io.to(roomCode).emit("room-state", {
+            code: updatedRoom.code,
+            status: updatedRoom.status,
+            hostUserId: updatedRoom.hostUserId,
+            difficulty: updatedRoom.difficulty,
+            players,
+          });
+        }
+      }
+    }
+  });
+
+  socket.on("play-again", ({ roomCode }) => {
+    const room = roomManager.getRoom(roomCode);
+    if (!room) return;
+
+    // Verify sender is the host
+    let isHost = false;
+    for (const p of room.players.values()) {
+      if (p.socketId === socket.id && p.isHost) {
+        isHost = true;
+        break;
+      }
+    }
+    if (!isHost) {
+      socket.emit("room-error", { message: "Only the host can restart" });
+      return;
+    }
+
+    // Reset room to waiting state
+    roomManager.setRoomStatus(roomCode, "waiting");
+    room.passageId = null;
+    room.passageText = null;
+    room.passageCharCount = null;
+    room.raceStartedAt = null;
+    room.maxDurationMs = null;
+
+    // Send updated room state to all players
+    const players = Array.from(room.players.values()).map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      displayBird: p.displayBird,
+      isHost: p.isHost,
+      isConnected: p.isConnected,
+    }));
+
+    io.to(roomCode).emit("room-state", {
+      code: room.code,
+      status: "waiting",
+      hostUserId: room.hostUserId,
+      difficulty: room.difficulty,
+      players,
+    });
+  });
 }

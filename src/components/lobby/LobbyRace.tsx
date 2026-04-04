@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { AfkBubble } from "@/components/AfkBubble";
 import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { useTyping } from "@/hooks/useTyping";
@@ -80,6 +81,36 @@ export function LobbyRace({
   const playerBird = currentPlayer?.displayBird ?? "robin";
   const playerUsername = currentPlayer?.username ?? "You";
 
+  // Track AFK players (no progress for 30s)
+  const lastProgressRef = useRef<Record<string, { progress: number; time: number }>>({});
+  const [afkPlayerIds, setAfkPlayerIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (racePhase !== "racing") return;
+    const now = Date.now();
+    for (const [userId, progress] of Object.entries(playerProgresses)) {
+      const prev = lastProgressRef.current[userId];
+      if (!prev || prev.progress !== progress) {
+        lastProgressRef.current[userId] = { progress, time: now };
+      }
+    }
+  }, [playerProgresses, racePhase]);
+
+  useEffect(() => {
+    if (racePhase !== "racing") return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const afk = new Set<string>();
+      for (const [userId, data] of Object.entries(lastProgressRef.current)) {
+        if (now - data.time > 30_000) {
+          afk.add(userId);
+        }
+      }
+      setAfkPlayerIds(afk);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [racePhase]);
+
   // Memoize other players list so it only changes when players join/leave
   const otherPlayers = useMemo(
     () => players.filter((p) => p.userId !== currentUserId),
@@ -149,6 +180,18 @@ export function LobbyRace({
               <p className="font-heading text-pixel-text-dim text-[8px]">ACC</p>
             </div>
           </div>
+          {afkPlayerIds.size > 0 && (
+            <div className="flex items-center gap-2 mb-2">
+              <AfkBubble />
+              <p className="font-heading text-pixel-text-dim text-[8px]">
+                {otherPlayers
+                  .filter((p) => afkPlayerIds.has(p.userId))
+                  .map((p) => p.username)
+                  .join(", ")}{" "}
+                AFK
+              </p>
+            </div>
+          )}
           <p className="font-heading text-pixel-text-dim text-[8px] animate-pulse">
             WAITING FOR OTHER PLAYERS...
           </p>
