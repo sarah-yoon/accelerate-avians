@@ -3,12 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 const VALID_BIRDS = [
-  "sparrow", "robin", "canary", "bluebird",
-  "cardinal", "owl", "puffin", "peacock", "falcon", "toucan", "snowy-owl", "bluejay",
-  "sparq", "tank", "glitch", "nova", "sunny", "rex", "prism", "king",
-  "parrot", "duck", "eagle", "pigeon", "robin-bird", "swallow", "kingfisher",
-  "bee-eater", "hummingbird", "macaw", "seagull", "pelican", "albatross",
-  "kestrel", "red-kite", "osprey", "swift", "nightjar",
+  "sparrow", "robin-bird", "parrot", "duck", "eagle", "pigeon",
+  "swallow", "kingfisher", "bee-eater", "hummingbird", "macaw",
+  "seagull", "pelican", "albatross", "kestrel", "red-kite",
+  "osprey", "swift", "nightjar",
 ];
 
 export async function POST(request: Request) {

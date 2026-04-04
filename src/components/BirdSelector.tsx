@@ -10,25 +10,28 @@ interface BirdDef {
 }
 
 const FLOCK: BirdDef[] = [
-  { id: "cardinal", name: "RED", species: "Cardinal", tab: "flock" },
-  { id: "owl", name: "OLLIE", species: "Owl", tab: "flock" },
-  { id: "puffin", name: "FINN", species: "Puffin", tab: "flock" },
-  { id: "peacock", name: "DUCHESS", species: "Peacock", tab: "flock" },
-  { id: "falcon", name: "ACE", species: "Falcon", tab: "flock" },
-  { id: "toucan", name: "BERRY", species: "Toucan", tab: "flock" },
-  { id: "snowy-owl", name: "GHOST", species: "Snowy Owl", tab: "flock" },
-  { id: "bluejay", name: "BOLT", species: "Blue Jay", tab: "flock" },
+  { id: "sparrow", name: "CHIP", species: "Sparrow", tab: "flock" },
+  { id: "robin-bird", name: "RED", species: "Robin", tab: "flock" },
+  { id: "eagle", name: "ACE", species: "Eagle", tab: "flock" },
+  { id: "duck", name: "WADDLE", species: "Duck", tab: "flock" },
+  { id: "pigeon", name: "COOP", species: "Pigeon", tab: "flock" },
+  { id: "parrot", name: "POLY", species: "Parrot", tab: "flock" },
+  { id: "macaw", name: "RIO", species: "Macaw", tab: "flock" },
+  { id: "seagull", name: "GULL", species: "Seagull", tab: "flock" },
+  { id: "swallow", name: "SWIFT", species: "Swallow", tab: "flock" },
+  { id: "hummingbird", name: "ZIP", species: "Hummingbird", tab: "flock" },
 ];
 
 const UNITS: BirdDef[] = [
-  { id: "sparq", name: "SPARQ", species: "Scout", tab: "units" },
-  { id: "tank", name: "TANK", species: "Heavy", tab: "units" },
-  { id: "glitch", name: "GLITCH", species: "Damaged", tab: "units" },
-  { id: "nova", name: "NOVA", species: "Stealth", tab: "units" },
-  { id: "sunny", name: "SUNNY", species: "Companion", tab: "units" },
-  { id: "rex", name: "REX", species: "Ancient", tab: "units" },
-  { id: "prism", name: "PRISM", species: "Experimental", tab: "units" },
-  { id: "king", name: "KING", species: "Commander", tab: "units" },
+  { id: "kingfisher", name: "FLASH", species: "Kingfisher", tab: "units" },
+  { id: "bee-eater", name: "BUZZ", species: "Bee-eater", tab: "units" },
+  { id: "pelican", name: "SCOOP", species: "Pelican", tab: "units" },
+  { id: "albatross", name: "DRIFT", species: "Albatross", tab: "units" },
+  { id: "kestrel", name: "HOVER", species: "Kestrel", tab: "units" },
+  { id: "red-kite", name: "GLIDE", species: "Red Kite", tab: "units" },
+  { id: "osprey", name: "DIVE", species: "Osprey", tab: "units" },
+  { id: "swift", name: "BLADE", species: "Swift", tab: "units" },
+  { id: "nightjar", name: "DUSK", species: "Nightjar", tab: "units" },
 ];
 
 const ALL_BIRDS = [...FLOCK, ...UNITS];
