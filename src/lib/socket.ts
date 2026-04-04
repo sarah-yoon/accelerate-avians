@@ -15,9 +15,10 @@ export function getSocket(clerkToken: string): Socket {
     auth: { token: clerkToken },
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 10,
+    reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
+    timeout: 30000,
   });
 
   return socket;

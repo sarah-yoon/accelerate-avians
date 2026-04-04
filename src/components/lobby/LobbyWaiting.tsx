@@ -31,13 +31,6 @@ export function LobbyWaiting({
 
   return (
     <div className="flex flex-col items-center gap-6 p-8">
-      {/* Leave lobby */}
-      <button
-        onClick={onLeaveLobby}
-        className="font-heading text-pixel-text-dim text-[10px] hover:text-pixel-text-white self-start"
-      >
-        ← LEAVE
-      </button>
 
       {/* Room code display */}
       <div className="text-center">
@@ -136,6 +129,14 @@ export function LobbyWaiting({
           Waiting for host to start the race...
         </p>
       )}
+
+      {/* Leave lobby */}
+      <button
+        onClick={onLeaveLobby}
+        className="font-heading text-[10px] text-pixel-bird-red border-2 border-pixel-bird-red px-6 py-2 rounded hover:bg-pixel-bird-red hover:text-pixel-black transition-colors"
+      >
+        LEAVE ROOM
+      </button>
 
       {/* Error display */}
       {connectionError && (
