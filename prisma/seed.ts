@@ -54,6 +54,14 @@ function generateBotGhostData(charCount: number, targetWpm: number, wordCount: n
 async function main() {
   console.log("Seeding database...");
 
+  // Clear existing data before re-seeding
+  console.log("Clearing old data...");
+  await prisma.score.deleteMany();
+  await prisma.matchPlayer.deleteMany();
+  await prisma.match.deleteMany();
+  await prisma.passage.deleteMany();
+  console.log("Old data cleared.");
+
   const passages = (fallbackPassages as RawPassage[]).map(processPassage).filter((p): p is NonNullable<typeof p> => p !== null);
 
   console.log(`Processing ${passages.length} passages...`);
