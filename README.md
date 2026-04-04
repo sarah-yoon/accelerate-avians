@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Accelerate Avians
 
-## Getting Started
+A real-time multiplayer typing racer with retro pixel art birds. Race against friends or challenge your own ghost replays.
 
-First, run the development server:
+**[Play it live](https://accelerate-avians.vercel.app)**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- **Multiplayer racing** — Create a room, share the code, and race head-to-head in real time
+- **Solo mode with ghost replay** — Race against your own previous best runs
+- **Lobby system** — Host controls difficulty, players join via room code, synchronized countdown
+- **Leaderboards** — Global rankings by passage, tracked per-player stats
+- **Bird avatars** — 20 pixel art bird sprites to choose from
+- **Difficulty tiers** — Short, medium, and long passages sourced from real text
+
+## Architecture
+
+The app is split into two independently deployed services:
+
+```
+┌─────────────────────────┐       WebSocket        ┌──────────────────────────┐
+│   Next.js Frontend      │◄──────────────────────►│   Game Server            │
+│   (Vercel)              │                         │   (Railway)              │
+│                         │                         │                         │
+│  React 19 + Tailwind    │                         │  Express + Socket.IO     │
+│  Clerk auth             │                         │  Clerk auth middleware   │
+│  Prisma ORM             │                         │  Room manager            │
+│  Next.js API routes     │                         │  Race controller         │
+│  Sentry monitoring      │                         │  Progress validator      │
+└────────┬────────────────┘                         └──────────────────────────┘
+         │
+         ▼
+   ┌───────────┐
+   │ PostgreSQL │
+   └───────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Frontend (Next.js 16 on Vercel)** — Handles rendering, authentication, API routes for scores/leaderboards/profiles, and the solo typing experience.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Game Server (Express + Socket.IO on Railway)** — Manages multiplayer state: room creation/joining, race synchronization, real-time progress broadcasting, disconnect handling, and result persistence.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Both services share the same PostgreSQL database and Clerk authentication.
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+| Layer          | Technology                          |
+|----------------|-------------------------------------|
+| Frontend       | Next.js 16, React 19, Tailwind CSS  |
+| Auth           | Clerk                               |
+| Database       | PostgreSQL + Prisma ORM             |
+| Game Server    | Express, Socket.IO                  |
+| Monitoring     | Sentry                              |
+| Deployment     | Vercel (frontend), Railway (server) |
+| Testing        | Vitest, Testing Library, Playwright |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data Model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Users** — Linked to Clerk, stores display bird preference
+- **Passages** — Typing prompts with word/char counts and difficulty rating
+- **Scores** — Per-user per-passage results with ghost replay data (keystroke JSON)
+- **Matches** — Multiplayer rooms with status lifecycle (waiting → racing → completed)
+- **MatchPlayers** — Per-player results within a match, including placement and ghost data
 
-## Deploy on Vercel
+## Running Locally
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Prerequisites
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Node.js 20+
+- PostgreSQL
+- Clerk account (for auth keys)
+
+### Frontend
+
+```bash
+npm install
+cp .env.example .env   # fill in Clerk + database credentials
+npx prisma migrate dev
+npm run db:seed         # seed passages
+npm run dev             # http://localhost:3000
+```
+
+### Game Server
+
+```bash
+cd server
+npm install
+cp .env.example .env   # fill in Clerk + CORS_ORIGIN
+npm run dev             # http://localhost:3001
+```
+
+## Testing
+
+```bash
+npm run test            # frontend unit + component tests (Vitest)
+cd server && npm test   # game server unit tests (Vitest)
+npm run test:e2e        # end-to-end tests (Playwright)
+```
