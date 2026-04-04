@@ -7,12 +7,14 @@ import { BirdSelector, ALL_BIRDS } from "@/components/BirdSelector";
 import { BirdIcon } from "@/components/BirdIcon";
 import { SkinSelector } from "@/components/SkinSelector";
 import { WpmChart } from "@/components/WpmChart";
+import { useLoadingCursor } from "@/hooks/useLoadingCursor";
 import type { ProfileStats } from "@/types";
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser();
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [loading, setLoading] = useState(true);
+  useLoadingCursor(loading);
   const [showBirdSelector, setShowBirdSelector] = useState(false);
   const [selectedBird, setSelectedBird] = useState("sparrow");
   const [saving, setSaving] = useState(false);

@@ -45,7 +45,7 @@ export function LobbyWaiting({
           {roomCode}
         </p>
         <button
-          onClick={() => navigator.clipboard.writeText(window.location.href)}
+          onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lobby/${roomCode}`)}
           className="font-body text-pixel-bird-blue text-sm mt-2 hover:underline"
         >
           Copy invite link

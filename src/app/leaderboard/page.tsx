@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useLoadingCursor } from "@/hooks/useLoadingCursor";
 import type { LeaderboardEntry, Difficulty } from "@/types";
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [difficulty, setDifficulty] = useState<Difficulty | "all">("all");
   const [loading, setLoading] = useState(true);
+  useLoadingCursor(loading);
 
   useEffect(() => {
     async function fetchLeaderboard() {
