@@ -20,19 +20,19 @@ The app is split into two independently deployed services:
 ```
 ┌─────────────────────────┐       WebSocket        ┌──────────────────────────┐
 │   Next.js Frontend      │◄──────────────────────►│   Game Server            │
-│   (Vercel)              │                         │   (Railway)              │
-│                         │                         │                         │
-│  React 19 + Tailwind    │                         │  Express + Socket.IO     │
-│  Clerk auth             │                         │  Clerk auth middleware   │
-│  Prisma ORM             │                         │  Room manager            │
-│  Next.js API routes     │                         │  Race controller         │
-│  Sentry monitoring      │                         │  Progress validator      │
-└────────┬────────────────┘                         └──────────────────────────┘
+│   (Vercel)              │                        │   (Railway)              │
+│                         │                        │                          │
+│  React 19 + Tailwind    │                        │  Express + Socket.IO     │
+│  Clerk auth             │                        │  Clerk auth middleware   │
+│  Prisma ORM             │                        │  Room manager            │
+│  Next.js API routes     │                        │  Race controller         │
+│  Sentry monitoring      │                        │  Progress validator      │
+└────────┬────────────────┘                        └──────────────────────────┘
          │
          ▼
-   ┌───────────┐
+   ┌────────────┐
    │ PostgreSQL │
-   └───────────┘
+   └────────────┘
 ```
 
 **Frontend (Next.js 16 on Vercel)** — Handles rendering, authentication, API routes for scores/leaderboards/profiles, and the solo typing experience.
