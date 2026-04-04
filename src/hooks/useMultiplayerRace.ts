@@ -132,7 +132,7 @@ export function useMultiplayerRace(
             countdownTimerRef.current = null;
           }
           setLobbyPhase("racing");
-          setRaceStartedAt(Date.now());
+          setRaceStartedAt(performance.now());
         }
       }, 1000);
     }

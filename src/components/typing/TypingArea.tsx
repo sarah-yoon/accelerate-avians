@@ -76,7 +76,7 @@ export function TypingArea({
       {/* Passage text — shown as full paragraph, scrolls down as you type */}
       <div
         ref={containerRef}
-        className="text-base leading-relaxed max-h-40 overflow-y-auto"
+        className="text-base leading-relaxed max-h-40 overflow-y-auto font-bold"
         style={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}
       >
         <span className="text-pixel-text-green">

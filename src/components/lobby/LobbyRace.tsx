@@ -38,6 +38,8 @@ export function LobbyRace({
 }: LobbyRaceProps) {
   const hasFinishedRef = useRef(false);
   const [playerFinished, setPlayerFinished] = useState(false);
+  const [finalWpm, setFinalWpm] = useState(0);
+  const [finalAccuracy, setFinalAccuracy] = useState(0);
 
   const {
     cursorPos,
@@ -66,6 +68,8 @@ export function LobbyRace({
       !hasFinishedRef.current
     ) {
       hasFinishedRef.current = true;
+      setFinalWpm(wpm);
+      setFinalAccuracy(accuracy);
       setPlayerFinished(true);
       onFinished(ghostData, correctKeystrokes, totalKeystrokes);
     }
@@ -98,7 +102,7 @@ export function LobbyRace({
 
   // Determine canvas phase — show "finished" when player completes to trigger confetti
   const playerProgress = passage.charCount > 0 ? cursorPos / passage.charCount : 0;
-  const elapsedMs = raceStartedAt ? Date.now() - raceStartedAt : 0;
+  const elapsedMs = raceStartedAt ? performance.now() - raceStartedAt : 0;
 
   // Deterministic seed from passage ID so all players see the same background
   const backgroundSeed = useMemo(() => {
@@ -135,12 +139,12 @@ export function LobbyRace({
           </p>
           <div className="flex justify-center gap-8 mb-4">
             <div>
-              <p className="font-heading text-pixel-text-green text-2xl">{wpm}</p>
+              <p className="font-heading text-pixel-text-green text-2xl">{finalWpm}</p>
               <p className="font-heading text-pixel-text-dim text-[8px]">WPM</p>
             </div>
             <div>
               <p className="font-heading text-pixel-text-white text-2xl">
-                {Math.round(accuracy * 100)}%
+                {Math.round(finalAccuracy * 100)}%
               </p>
               <p className="font-heading text-pixel-text-dim text-[8px]">ACC</p>
             </div>
