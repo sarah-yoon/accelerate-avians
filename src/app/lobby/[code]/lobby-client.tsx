@@ -113,6 +113,7 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
           isHost={race.isHost}
           difficulty={race.difficulty}
           onStartRace={race.startRace}
+          onChangeDifficulty={race.changeDifficulty}
           onLeaveLobby={() => {
             race.leaveLobby();
             window.location.href = "/multiplayer";

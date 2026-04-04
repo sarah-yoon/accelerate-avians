@@ -98,6 +98,7 @@ export interface ClientToServerEvents {
   }) => void;
   "leave-room": (payload: { roomCode: string }) => void;
   "play-again": (payload: { roomCode: string }) => void;
+  "change-difficulty": (payload: { roomCode: string; difficulty: "short" | "medium" | "long" }) => void;
 }
 
 export interface SocketData {

@@ -212,4 +212,38 @@ export function registerRoomHandlers(
       players,
     });
   });
+
+  socket.on("change-difficulty", ({ roomCode, difficulty }) => {
+    const room = roomManager.getRoom(roomCode);
+    if (!room || room.status !== "waiting") return;
+
+    // Verify sender is the host
+    let isHost = false;
+    for (const p of room.players.values()) {
+      if (p.socketId === socket.id && p.isHost) {
+        isHost = true;
+        break;
+      }
+    }
+    if (!isHost) return;
+
+    room.difficulty = difficulty;
+
+    // Broadcast updated state to all players
+    const players = Array.from(room.players.values()).map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      displayBird: p.displayBird,
+      isHost: p.isHost,
+      isConnected: p.isConnected,
+    }));
+
+    io.to(roomCode).emit("room-state", {
+      code: room.code,
+      status: room.status,
+      hostUserId: room.hostUserId,
+      difficulty: room.difficulty,
+      players,
+    });
+  });
 }

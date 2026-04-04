@@ -37,6 +37,7 @@ interface UseMultiplayerRaceReturn {
   sendFinished: (ghostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
   playAgain: () => void;
   leaveLobby: () => void;
+  changeDifficulty: (difficulty: Difficulty) => void;
 }
 
 export function useMultiplayerRace(
@@ -248,6 +249,14 @@ export function useMultiplayerRace(
     socket.emit("play-again", { roomCode });
   }, [socket, roomCode]);
 
+  const changeDifficulty = useCallback(
+    (diff: Difficulty) => {
+      if (!socket || !roomCode) return;
+      socket.emit("change-difficulty", { roomCode, difficulty: diff });
+    },
+    [socket, roomCode]
+  );
+
   const leaveLobby = useCallback(() => {
     if (!socket || !roomCode) return;
     socket.emit("leave-room", { roomCode });
@@ -282,5 +291,6 @@ export function useMultiplayerRace(
     sendFinished,
     playAgain,
     leaveLobby,
+    changeDifficulty,
   };
 }
