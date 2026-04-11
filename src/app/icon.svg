@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Speed lines (motion indicating flight) -->
+  <rect x="0" y="5" width="2" height="1" fill="#fbbf24"/>
+  <rect x="0" y="7" width="3" height="1" fill="#fbbf24"/>
+  <rect x="0" y="9" width="2" height="1" fill="#fbbf24"/>
+
+  <!-- Tail feathers -->
+  <rect x="3" y="6" width="2" height="1" fill="#f59e0b"/>
+  <rect x="3" y="7" width="2" height="2" fill="#f59e0b"/>
+  <rect x="3" y="9" width="2" height="1" fill="#f59e0b"/>
+
+  <!-- Bird body (top outline) -->
+  <rect x="5" y="5" width="6" height="1" fill="#0a0a0a"/>
+  <!-- Body fill -->
+  <rect x="4" y="6" width="8" height="4" fill="#fbbf24"/>
+  <!-- Body bottom outline -->
+  <rect x="5" y="10" width="6" height="1" fill="#0a0a0a"/>
+  <!-- Left body edge -->
+  <rect x="4" y="6" width="1" height="4" fill="#0a0a0a"/>
+
+  <!-- Wing (folded) -->
+  <rect x="6" y="7" width="3" height="2" fill="#f59e0b"/>
+  <rect x="7" y="8" width="2" height="1" fill="#d97706"/>
+
+  <!-- Head outline -->
+  <rect x="10" y="5" width="3" height="1" fill="#0a0a0a"/>
+  <rect x="13" y="6" width="1" height="2" fill="#0a0a0a"/>
+  <rect x="10" y="8" width="3" height="1" fill="#0a0a0a"/>
+  <!-- Head fill -->
+  <rect x="11" y="6" width="2" height="2" fill="#fbbf24"/>
+
+  <!-- Eye (white with black pupil) -->
+  <rect x="11" y="6" width="2" height="1" fill="#ffffff"/>
+  <rect x="12" y="6" width="1" height="1" fill="#0a0a0a"/>
+
+  <!-- Beak (orange/red) -->
+  <rect x="14" y="6" width="1" height="1" fill="#ef4444"/>
+  <rect x="14" y="7" width="2" height="1" fill="#ef4444"/>
+  <rect x="14" y="8" width="1" height="1" fill="#b91c1c"/>
+</svg>
