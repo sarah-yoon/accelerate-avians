@@ -186,13 +186,17 @@ export function registerRaceHandlers(
     // Update MatchPlayer record in DB
     const match = await prisma.match.findUnique({ where: { roomCode } });
     if (match) {
+      const finishedData = raceController.getFinishedPlayerData(roomCode, userId);
+
       await prisma.matchPlayer.updateMany({
         where: { matchId: match.id, userId },
         data: {
           wpm: finishResult.wpm,
           accuracy: finishResult.accuracy,
           placement: finishResult.placement,
-          ghostData: ghostData as never,
+          clientGhostData: ghostData as never,
+          serverGhost: (finishedData?.serverGhost ?? []) as never,
+          flagged: false,
           status: "finished",
           finishedAt: new Date(),
         },
