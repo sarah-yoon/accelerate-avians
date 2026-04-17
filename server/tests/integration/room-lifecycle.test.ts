@@ -29,7 +29,7 @@ describe("Room Lifecycle Integration", () => {
   let timeoutCalls: string[];
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "performance"] });
     timeoutCalls = [];
     roomManager = new RoomManager();
     raceController = new RaceController((roomCode) => {
@@ -282,6 +282,10 @@ describe("Room Lifecycle Integration", () => {
 
       const ghostData = makeGhostData(PASSAGE.charCount, 15000); // 15 seconds
 
+      raceController.updateCharIndex(room.code, "host-1", 1);
+      vi.advanceTimersByTime(15000);
+      raceController.updateCharIndex(room.code, "host-1", PASSAGE.charCount);
+
       const result = raceController.playerFinished(room.code, "host-1", {
         ghostData,
         correctKeystrokes: 85,
@@ -380,11 +384,20 @@ describe("Room Lifecycle Integration", () => {
       const fastGhost = makeGhostData(PASSAGE.charCount, 8000);
       const slowGhost = makeGhostData(PASSAGE.charCount, 20000);
 
+      raceController.updateCharIndex(room.code, "player-2", 1);
+      vi.advanceTimersByTime(8000);
+      raceController.updateCharIndex(room.code, "player-2", PASSAGE.charCount);
+
       raceController.playerFinished(room.code, "player-2", {
         ghostData: fastGhost,
         correctKeystrokes: 89,
         totalKeystrokes: 89,
       });
+
+      raceController.updateCharIndex(room.code, "host-1", 1);
+      vi.advanceTimersByTime(20000);
+      raceController.updateCharIndex(room.code, "host-1", PASSAGE.charCount);
+
       raceController.playerFinished(room.code, "host-1", {
         ghostData: slowGhost,
         correctKeystrokes: 80,
@@ -417,6 +430,9 @@ describe("Room Lifecycle Integration", () => {
 
       // Only player-2 finishes
       const ghost = makeGhostData(PASSAGE.charCount, 10000);
+      raceController.updateCharIndex(room.code, "player-2", 1);
+      vi.advanceTimersByTime(10000);
+      raceController.updateCharIndex(room.code, "player-2", PASSAGE.charCount);
       raceController.playerFinished(room.code, "player-2", {
         ghostData: ghost,
         correctKeystrokes: 89,
@@ -634,7 +650,11 @@ describe("Room Lifecycle Integration", () => {
       raceController.updateCharIndex(room.code, "host-1", 50);
       raceController.updateCharIndex(room.code, "player-2", 40);
 
-      // Player 2 finishes first
+      // Player 2 finishes first (3000ms elapsed → higher WPM)
+      raceController.updateCharIndex(room.code, "player-2", 1);
+      vi.advanceTimersByTime(3000);
+      raceController.updateCharIndex(room.code, "player-2", PASSAGE.charCount);
+
       const ghost2 = makeGhostData(PASSAGE.charCount, 10000);
       const finish2 = raceController.playerFinished(room.code, "player-2", {
         ghostData: ghost2,
@@ -644,7 +664,11 @@ describe("Room Lifecycle Integration", () => {
       expect(finish2!.placement).toBe(1);
       expect(raceController.allPlayersFinished(room.code)).toBe(false);
 
-      // Host finishes second
+      // Host finishes second (6000ms elapsed → lower WPM)
+      raceController.updateCharIndex(room.code, "host-1", 1);
+      vi.advanceTimersByTime(6000);
+      raceController.updateCharIndex(room.code, "host-1", PASSAGE.charCount);
+
       const ghost1 = makeGhostData(PASSAGE.charCount, 14000);
       const finish1 = raceController.playerFinished(room.code, "host-1", {
         ghostData: ghost1,
