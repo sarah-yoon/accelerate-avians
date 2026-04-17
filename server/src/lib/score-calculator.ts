@@ -1,6 +1,7 @@
-interface GhostDataPoint {
+interface ProgressSample {
   charIndex: number;
-  ms: number;
+  ms?: number;          // legacy client field
+  serverMs?: number;    // new server field
 }
 
 interface RaceResult {
@@ -9,24 +10,19 @@ interface RaceResult {
 }
 
 export function calculateResults(
-  ghostData: GhostDataPoint[],
+  progressSamples: ProgressSample[],
   wordCount: number,
   correctKeystrokes: number,
   totalKeystrokes: number
 ): RaceResult {
-  // WPM calculation
   let wpm = 0;
-  if (ghostData.length >= 2) {
-    const firstMs = ghostData[0].ms;
-    const lastMs = ghostData[ghostData.length - 1].ms;
-    const elapsedMs = lastMs - firstMs;
+  if (progressSamples.length >= 2) {
+    const stamp = (s: ProgressSample) => s.serverMs ?? s.ms ?? 0;
+    const elapsedMs = stamp(progressSamples[progressSamples.length - 1]) - stamp(progressSamples[0]);
     if (elapsedMs > 0) {
       wpm = Math.round((wordCount / elapsedMs) * 60000);
     }
   }
-
-  // Accuracy calculation
   const accuracy = totalKeystrokes > 0 ? correctKeystrokes / totalKeystrokes : 0;
-
   return { wpm, accuracy };
 }
