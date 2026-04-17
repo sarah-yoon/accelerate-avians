@@ -3,7 +3,7 @@ import { RoomManager } from "../../src/rooms/room-manager.js";
 import { RaceController } from "../../src/race/race-controller.js";
 
 // Passage where wordCount drives WPM calculation.
-// 20 words, 100 chars — easy math: typing all 100 chars = 20 words.
+// 20 words, 131 chars — typing all 131 chars = 20 words.
 // At ~60 WPM: 20 words / 60 WPM * 60000 ms = 20000 ms elapsed.
 const PASSAGE = {
   id: "auth-test-passage",
