@@ -1,5 +1,5 @@
 import { calculateResults } from "../lib/score-calculator.js";
-import type { Room, RaceRanking } from "../types.js";
+import type { Room, RaceRanking, ServerGhostPoint } from "../types.js";
 
 const COUNTDOWN_MS = 3000;
 
@@ -26,6 +26,8 @@ interface RaceState {
   passageCharCount: number;
   passageWordCount: number;
   playerCharIndices: Map<string, number>;
+  serverGhost: Map<string, ServerGhostPoint[]>;     // NEW
+  raceStartedAtPerfNow: number;                      // NEW — for serverMs deltas
   finishedPlayers: Map<
     string,
     { placement: number; wpm: number; accuracy: number; ghostData: Array<{ charIndex: number; ms: number }> }
@@ -61,14 +63,18 @@ export class RaceController {
     room.maxDurationMs = (passage.charCount / 2) * 1000 + 30000;
 
     const playerCharIndices = new Map<string, number>();
+    const serverGhost = new Map<string, ServerGhostPoint[]>();
     for (const player of room.players.values()) {
       playerCharIndices.set(player.userId, 0);
+      serverGhost.set(player.userId, []);
     }
 
     this.raceStates.set(room.code, {
       passageCharCount: passage.charCount,
       passageWordCount: passage.wordCount,
       playerCharIndices,
+      serverGhost,
+      raceStartedAtPerfNow: performance.now(),
       finishedPlayers: new Map(),
       nextPlacement: 1,
     });
@@ -119,6 +125,20 @@ export class RaceController {
     const state = this.raceStates.get(roomCode);
     if (!state) return;
     state.playerCharIndices.set(userId, charIndex);
+
+    const samples = state.serverGhost.get(userId);
+    if (samples) {
+      samples.push({
+        charIndex,
+        serverMs: performance.now() - state.raceStartedAtPerfNow,
+      });
+    }
+  }
+
+  getServerGhost(roomCode: string, userId: string): ServerGhostPoint[] {
+    const state = this.raceStates.get(roomCode);
+    if (!state) return [];
+    return state.serverGhost.get(userId) ?? [];
   }
 
   getProgressSnapshot(

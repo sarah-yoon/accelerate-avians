@@ -212,3 +212,52 @@ describe("RaceController", () => {
     });
   });
 });
+
+function makeRoom(userIds: string[]): Room {
+  const players = new Map<string, RoomPlayer>();
+  userIds.forEach((userId, i) => {
+    players.set(userId, {
+      userId,
+      username: userId,
+      displayBird: "robin",
+      socketId: `sock${i}`,
+      isHost: i === 0,
+      isConnected: true,
+      disconnectedAt: null,
+    });
+  });
+  return {
+    code: "TEST01",
+    status: "waiting",
+    hostUserId: userIds[0],
+    difficulty: "medium",
+    players,
+    passageId: null,
+    passageText: null,
+    passageCharCount: null,
+    raceStartedAt: null,
+    maxDurationMs: null,
+    createdAt: Date.now(),
+    lastActivityAt: Date.now(),
+    raceTimeoutTimer: null,
+    progressBroadcastInterval: null,
+  };
+}
+
+describe("RaceController serverGhost", () => {
+  it("records a serverGhost sample on every updateCharIndex with monotonic serverMs", async () => {
+    const controller = new RaceController(() => {});
+    const room = makeRoom(["alice", "bob"]);
+    controller.startRace(room, { id: "p1", text: "hello world", charCount: 11, wordCount: 2 });
+
+    controller.updateCharIndex(room.code, "alice", 1);
+    await new Promise((r) => setTimeout(r, 5));
+    controller.updateCharIndex(room.code, "alice", 3);
+
+    const samples = controller.getServerGhost(room.code, "alice");
+    expect(samples).toHaveLength(2);
+    expect(samples[0].charIndex).toBe(1);
+    expect(samples[1].charIndex).toBe(3);
+    expect(samples[1].serverMs).toBeGreaterThan(samples[0].serverMs);
+  });
+});
