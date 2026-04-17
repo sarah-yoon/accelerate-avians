@@ -30,7 +30,13 @@ interface RaceState {
   raceStartedAtPerfNow: number;                      // NEW — for serverMs deltas
   finishedPlayers: Map<
     string,
-    { placement: number; wpm: number; accuracy: number; ghostData: Array<{ charIndex: number; ms: number }> }
+    {
+      placement: number;
+      wpm: number;
+      accuracy: number;
+      clientGhostData: Array<{ charIndex: number; ms: number }>;
+      serverGhost: ServerGhostPoint[];
+    }
   >;
   nextPlacement: number;
 }
@@ -111,7 +117,8 @@ export class RaceController {
       placement,
       wpm,
       accuracy,
-      ghostData: data.ghostData,  // preserved as clientGhostData for replay only (renamed in Task 5)
+      clientGhostData: data.ghostData,
+      serverGhost: serverSamples.slice(),  // copy so post-finish updates don't mutate
     });
 
     return { placement, wpm, accuracy };
@@ -207,12 +214,22 @@ export class RaceController {
   getFinishedPlayerData(
     roomCode: string,
     userId: string
-  ): { wpm: number; accuracy: number; ghostData: Array<{ charIndex: number; ms: number }> } | null {
+  ): {
+    wpm: number;
+    accuracy: number;
+    clientGhostData: Array<{ charIndex: number; ms: number }>;
+    serverGhost: ServerGhostPoint[];
+  } | null {
     const state = this.raceStates.get(roomCode);
     if (!state) return null;
     const data = state.finishedPlayers.get(userId);
     if (!data) return null;
-    return { wpm: data.wpm, accuracy: data.accuracy, ghostData: data.ghostData };
+    return {
+      wpm: data.wpm,
+      accuracy: data.accuracy,
+      clientGhostData: data.clientGhostData,
+      serverGhost: data.serverGhost,
+    };
   }
 
   cleanupRace(roomCode: string): void {

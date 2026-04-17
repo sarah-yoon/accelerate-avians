@@ -275,6 +275,23 @@ describe("RaceController serverGhost", () => {
     expect(samples[1].serverMs).toBeGreaterThan(samples[0].serverMs);
   });
 
+  it("getFinishedPlayerData returns serverGhost alongside client data", () => {
+    const room = makeRoom(["alice", "bob"]);
+    controller.startRace(room, { id: "p1", text: "hello", charCount: 5, wordCount: 1 });
+    controller.updateCharIndex(room.code, "alice", 5);
+    controller.playerFinished(room.code, "alice", {
+      ghostData: [{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }],
+      correctKeystrokes: 5,
+      totalKeystrokes: 5,
+    });
+
+    const data = controller.getFinishedPlayerData(room.code, "alice");
+    expect(data).not.toBeNull();
+    expect(data!.serverGhost).toBeDefined();
+    expect(data!.serverGhost.length).toBeGreaterThan(0);
+    expect(data!.clientGhostData).toEqual([{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }]);
+  });
+
   it("derives final WPM from serverGhost, ignoring client-supplied ghostData", async () => {
     const room = makeRoom(["alice", "bob"]);
     controller.startRace(room, { id: "p1", text: "twenty char passage.", charCount: 20, wordCount: 4 });
