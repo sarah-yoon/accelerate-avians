@@ -44,7 +44,7 @@ Both services share the same PostgreSQL database and Clerk authentication.
 **Scoring authority:**
 
 - **Multiplayer races** are *server-authoritative* — final WPM and accuracy are derived from server-stamped progress events received over WebSocket. Client-supplied keystroke timing data is preserved (`clientGhostData`) but used only for the existing solo-mode replay visualization.
-- **Solo races** are *server-validated* but use client-supplied input (the typing happens entirely in-browser; only the final result is POSTed to `/api/scores`).
+- **Solo races** are *server-validated* but use client-supplied input (the typing happens entirely in-browser; only the final result is POSTed to `/api/scores`). Solo WPM is recomputed server-side from the submitted timing data; solo accuracy is client-reported.
 
 ## Tech Stack
 

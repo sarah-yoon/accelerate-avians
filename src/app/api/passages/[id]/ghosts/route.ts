@@ -30,7 +30,7 @@ export async function GET(
   // 1. Personal best (if userId resolved)
   if (userId) {
     const personalBest = await prisma.score.findFirst({
-      where: { passageId, userId },
+      where: { passageId, userId, flagged: false },
       orderBy: { wpm: "desc" },
       include: { user: { select: { id: true, username: true, displayBird: true } } },
     });
@@ -75,6 +75,7 @@ export async function GET(
         wpm: { gte: tier.min, lte: tier.max },
         user: { clerkId: { startsWith: "bot_" } },
         id: { notIn: ghosts.map((g) => g.id) },
+        flagged: false,
       },
       orderBy: { wpm: "asc" },
       include: { user: { select: { id: true, username: true, displayBird: true } } },
@@ -98,6 +99,7 @@ export async function GET(
         passageId,
         id: { notIn: ghosts.map((g) => g.id) },
         user: { clerkId: { startsWith: "bot_" } },
+        flagged: false,
       },
       take: 4 - ghosts.length,
       orderBy: { wpm: "asc" },

@@ -412,7 +412,7 @@ describe("registerRaceHandlers", () => {
         wpm: 60,
         accuracy: 100,
         clientGhostData: [{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }],
-        serverGhost: [{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }],
+        serverGhost: [{ charIndex: 0, serverMs: 0 }, { charIndex: 5, serverMs: 100 }],
       });
       raceController.allPlayersFinished.mockReturnValue(false);
 

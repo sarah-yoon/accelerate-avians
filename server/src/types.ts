@@ -34,7 +34,7 @@ export interface PlayerProgress {
   updateCount: number;
   updateWindowStart: number;
   finished: boolean;
-  ghostData: Array<{ charIndex: number; ms: number }>;
+  clientGhostData: Array<{ charIndex: number; ms: number }>;
 }
 
 export interface RaceRanking {

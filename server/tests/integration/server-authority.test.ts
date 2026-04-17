@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { RoomManager } from "../../src/rooms/room-manager.js";
 import { RaceController } from "../../src/race/race-controller.js";
 
