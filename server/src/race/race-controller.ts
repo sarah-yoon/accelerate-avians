@@ -95,8 +95,10 @@ export class RaceController {
     if (!state) return null;
     if (state.finishedPlayers.has(userId)) return null;
 
+    const serverSamples = state.serverGhost.get(userId) ?? [];
+
     const { wpm, accuracy } = calculateResults(
-      data.ghostData,
+      serverSamples,
       state.passageWordCount,
       data.correctKeystrokes,
       data.totalKeystrokes
@@ -109,7 +111,7 @@ export class RaceController {
       placement,
       wpm,
       accuracy,
-      ghostData: data.ghostData,
+      ghostData: data.ghostData,  // preserved as clientGhostData for replay only (renamed in Task 5)
     });
 
     return { placement, wpm, accuracy };
