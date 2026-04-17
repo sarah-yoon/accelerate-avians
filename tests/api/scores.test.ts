@@ -36,7 +36,7 @@ describe("POST /api/scores", () => {
   });
 
   it("saves a valid score and returns computed WPM/accuracy", async () => {
-    const ghostData = Array.from({ length: 50 }, (_, i) => ({
+    const clientGhostData = Array.from({ length: 50 }, (_, i) => ({
       charIndex: i,
       ms: i * 600,
     }));
@@ -46,7 +46,7 @@ describe("POST /api/scores", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         passageId: "passage_1",
-        ghostData,
+        clientGhostData,
         totalKeystrokes: 155,
         correctKeystrokes: 150,
       }),
@@ -65,7 +65,7 @@ describe("POST /api/scores", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         passageId: "passage_1",
-        ghostData: [],
+        clientGhostData: [],
         totalKeystrokes: 10,
         correctKeystrokes: 10,
       }),

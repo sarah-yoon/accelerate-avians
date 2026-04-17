@@ -19,7 +19,7 @@ export interface GhostRacer {
   username: string;
   displayBird: string;
   wpm: number;
-  ghostData: GhostDataPoint[];
+  clientGhostData: GhostDataPoint[];
   isPersonalBest?: boolean;
 }
 
@@ -33,7 +33,7 @@ export interface RaceResult {
 
 export interface ScoreSubmission {
   passageId: string;
-  ghostData: GhostDataPoint[];
+  clientGhostData: GhostDataPoint[];
   totalKeystrokes: number;
   correctKeystrokes: number;
 }

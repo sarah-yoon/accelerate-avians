@@ -39,7 +39,7 @@ describe("TypingEngine", () => {
   it("records ghost data points on correct keystrokes", () => {
     engine.handleKey("h", 100);
     engine.handleKey("e", 200);
-    expect(engine.ghostData).toEqual([
+    expect(engine.clientGhostData).toEqual([
       { charIndex: 0, ms: 100 },
       { charIndex: 1, ms: 200 },
     ]);
@@ -47,7 +47,7 @@ describe("TypingEngine", () => {
 
   it("does not record ghost data on errors", () => {
     engine.handleKey("x", 100);
-    expect(engine.ghostData).toEqual([]);
+    expect(engine.clientGhostData).toEqual([]);
   });
 
   it("marks complete when all characters typed", () => {

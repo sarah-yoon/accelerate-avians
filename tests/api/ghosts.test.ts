@@ -11,13 +11,13 @@ vi.mock("@/lib/prisma", () => ({
         {
           id: "score_1",
           wpm: 60,
-          ghostData: [{ charIndex: 0, ms: 0 }],
+          clientGhostData: [{ charIndex: 0, ms: 0 }],
           user: { id: "user_1", username: "bot_60wpm", displayBird: "robin" },
         },
         {
           id: "score_2",
           wpm: 80,
-          ghostData: [{ charIndex: 0, ms: 0 }],
+          clientGhostData: [{ charIndex: 0, ms: 0 }],
           user: { id: "user_2", username: "bot_80wpm", displayBird: "canary" },
         },
       ]),

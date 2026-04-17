@@ -41,7 +41,7 @@ export async function GET(
         username: personalBest.user.username,
         displayBird: personalBest.user.displayBird,
         wpm: personalBest.wpm,
-        ghostData: personalBest.ghostData as { charIndex: number; ms: number }[],
+        clientGhostData: personalBest.clientGhostData as { charIndex: number; ms: number }[],
         isPersonalBest: true,
       });
     }
@@ -86,7 +86,7 @@ export async function GET(
         username: ghost.user.username,
         displayBird: ghost.user.displayBird,
         wpm: ghost.wpm,
-        ghostData: ghost.ghostData as { charIndex: number; ms: number }[],
+        clientGhostData: ghost.clientGhostData as { charIndex: number; ms: number }[],
       });
     }
   }
@@ -110,7 +110,7 @@ export async function GET(
         username: score.user.username,
         displayBird: score.user.displayBird,
         wpm: score.wpm,
-        ghostData: score.ghostData as { charIndex: number; ms: number }[],
+        clientGhostData: score.clientGhostData as { charIndex: number; ms: number }[],
       });
     }
   }

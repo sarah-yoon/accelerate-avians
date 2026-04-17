@@ -22,9 +22,9 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as ScoreSubmission;
-  const { passageId, ghostData, totalKeystrokes, correctKeystrokes } = body;
+  const { passageId, clientGhostData, totalKeystrokes, correctKeystrokes } = body;
 
-  if (!passageId || !ghostData || !totalKeystrokes) {
+  if (!passageId || !clientGhostData || !totalKeystrokes) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   }
 
   const validation = validateScore({
-    ghostData: ghostData as GhostDataPoint[],
+    clientGhostData: clientGhostData as GhostDataPoint[],
     wordCount: passage.wordCount,
     totalKeystrokes,
     correctKeystrokes,
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const sampledGhostData = sampleGhostData(ghostData as GhostDataPoint[]);
+  const sampledClientGhostData = sampleGhostData(clientGhostData as GhostDataPoint[]);
 
   const score = await prisma.score.create({
     data: {
@@ -60,7 +60,8 @@ export async function POST(request: Request) {
       passageId,
       wpm: validation.wpm,
       accuracy: validation.accuracy,
-      ghostData: sampledGhostData as unknown as import("@prisma/client").Prisma.InputJsonValue,
+      clientGhostData: sampledClientGhostData as unknown as import("@prisma/client").Prisma.InputJsonValue,
+      flagged: false,
     },
   });
 

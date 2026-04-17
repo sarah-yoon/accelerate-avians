@@ -50,7 +50,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
   const typingComplete = typing.isComplete;
   const typingWpm = typing.wpm;
   const typingAccuracy = typing.accuracy;
-  const typingGhostData = typing.ghostData;
+  const typingGhostData = typing.clientGhostData;
   const typingTotalKeystrokes = typing.totalKeystrokes;
   const typingCorrectKeystrokes = typing.correctKeystrokes;
 
@@ -60,7 +60,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
 
       // Calculate placement vs ghosts
       const ghostFinishTimes = ghosts.map((g) => {
-        const lastPoint = g.ghostData[g.ghostData.length - 1];
+        const lastPoint = g.clientGhostData[g.clientGhostData.length - 1];
         return lastPoint?.ms ?? Infinity;
       });
       const playerTime =
@@ -84,7 +84,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             passageId: passage.id,
-            ghostData: typingGhostData,
+            clientGhostData: typingGhostData,
             totalKeystrokes: typingTotalKeystrokes,
             correctKeystrokes: typingCorrectKeystrokes,
           }),

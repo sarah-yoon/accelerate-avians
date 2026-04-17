@@ -77,9 +77,9 @@ async function main() {
         create: { clerkId: `bot_${wpm}`, username: `bot_${wpm}wpm`, displayBird: "robot" },
       });
 
-      const ghostData = generateBotGhostData(passage.charCount, wpm, passage.wordCount);
+      const clientGhostData = generateBotGhostData(passage.charCount, wpm, passage.wordCount);
       await prisma.score.create({
-        data: { userId: botUser.id, passageId: created.id, wpm, accuracy: 0.95 + Math.random() * 0.05, ghostData },
+        data: { userId: botUser.id, passageId: created.id, wpm, accuracy: 0.95 + Math.random() * 0.05, clientGhostData },
       });
     }
   }

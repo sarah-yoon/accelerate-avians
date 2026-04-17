@@ -34,7 +34,7 @@ describe("validateScore", () => {
 
   it("accepts a valid score", () => {
     const result = validateScore({
-      ghostData: validGhostData,
+      clientGhostData: validGhostData,
       wordCount: 10,
       totalKeystrokes: 55,
       correctKeystrokes: 50,
@@ -52,7 +52,7 @@ describe("validateScore", () => {
       ms: i * 2,
     }));
     const result = validateScore({
-      ghostData: fastGhostData,
+      clientGhostData: fastGhostData,
       wordCount: 10,
       totalKeystrokes: 55,
       correctKeystrokes: 50,
@@ -69,7 +69,7 @@ describe("validateScore", () => {
       ms: i * 1200,
     }));
     const result = validateScore({
-      ghostData: slowGhostData,
+      clientGhostData: slowGhostData,
       wordCount: 10,
       totalKeystrokes: 55,
       correctKeystrokes: 50,
@@ -80,16 +80,16 @@ describe("validateScore", () => {
     }
   });
 
-  it("rejects ghostData with fewer than 10 entries", () => {
+  it("rejects clientGhostData with fewer than 10 entries", () => {
     const result = validateScore({
-      ghostData: [{ charIndex: 0, ms: 0 }],
+      clientGhostData: [{ charIndex: 0, ms: 0 }],
       wordCount: 10,
       totalKeystrokes: 55,
       correctKeystrokes: 50,
     });
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.reason).toBe("ghostData must have at least 10 entries");
+      expect(result.reason).toBe("clientGhostData must have at least 10 entries");
     }
   });
 });
