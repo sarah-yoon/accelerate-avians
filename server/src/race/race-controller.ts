@@ -1,5 +1,5 @@
 import { calculateResults } from "../lib/score-calculator.js";
-import type { Room, RaceRanking } from "../types.js";
+import type { Room, RaceRanking, ServerGhostPoint } from "../types.js";
 
 const COUNTDOWN_MS = 3000;
 
@@ -26,9 +26,17 @@ interface RaceState {
   passageCharCount: number;
   passageWordCount: number;
   playerCharIndices: Map<string, number>;
+  serverGhost: Map<string, ServerGhostPoint[]>;     // NEW
+  raceStartedAtPerfNow: number;                      // NEW — for serverMs deltas
   finishedPlayers: Map<
     string,
-    { placement: number; wpm: number; accuracy: number; ghostData: Array<{ charIndex: number; ms: number }> }
+    {
+      placement: number;
+      wpm: number;
+      accuracy: number;
+      clientGhostData: Array<{ charIndex: number; ms: number }>;
+      serverGhost: ServerGhostPoint[];
+    }
   >;
   nextPlacement: number;
 }
@@ -61,14 +69,18 @@ export class RaceController {
     room.maxDurationMs = (passage.charCount / 2) * 1000 + 30000;
 
     const playerCharIndices = new Map<string, number>();
+    const serverGhost = new Map<string, ServerGhostPoint[]>();
     for (const player of room.players.values()) {
       playerCharIndices.set(player.userId, 0);
+      serverGhost.set(player.userId, []);
     }
 
     this.raceStates.set(room.code, {
       passageCharCount: passage.charCount,
       passageWordCount: passage.wordCount,
       playerCharIndices,
+      serverGhost,
+      raceStartedAtPerfNow: performance.now(),
       finishedPlayers: new Map(),
       nextPlacement: 1,
     });
@@ -89,8 +101,10 @@ export class RaceController {
     if (!state) return null;
     if (state.finishedPlayers.has(userId)) return null;
 
+    const serverSamples = state.serverGhost.get(userId) ?? [];
+
     const { wpm, accuracy } = calculateResults(
-      data.ghostData,
+      serverSamples,
       state.passageWordCount,
       data.correctKeystrokes,
       data.totalKeystrokes
@@ -103,7 +117,8 @@ export class RaceController {
       placement,
       wpm,
       accuracy,
-      ghostData: data.ghostData,
+      clientGhostData: data.ghostData,
+      serverGhost: serverSamples.slice(),  // copy so post-finish updates don't mutate
     });
 
     return { placement, wpm, accuracy };
@@ -119,6 +134,20 @@ export class RaceController {
     const state = this.raceStates.get(roomCode);
     if (!state) return;
     state.playerCharIndices.set(userId, charIndex);
+
+    const samples = state.serverGhost.get(userId);
+    if (samples) {
+      samples.push({
+        charIndex,
+        serverMs: performance.now() - state.raceStartedAtPerfNow,
+      });
+    }
+  }
+
+  getServerGhost(roomCode: string, userId: string): ServerGhostPoint[] {
+    const state = this.raceStates.get(roomCode);
+    if (!state) return [];
+    return state.serverGhost.get(userId) ?? [];
   }
 
   getProgressSnapshot(
@@ -185,12 +214,22 @@ export class RaceController {
   getFinishedPlayerData(
     roomCode: string,
     userId: string
-  ): { wpm: number; accuracy: number; ghostData: Array<{ charIndex: number; ms: number }> } | null {
+  ): {
+    wpm: number;
+    accuracy: number;
+    clientGhostData: Array<{ charIndex: number; ms: number }>;
+    serverGhost: ServerGhostPoint[];
+  } | null {
     const state = this.raceStates.get(roomCode);
     if (!state) return null;
     const data = state.finishedPlayers.get(userId);
     if (!data) return null;
-    return { wpm: data.wpm, accuracy: data.accuracy, ghostData: data.ghostData };
+    return {
+      wpm: data.wpm,
+      accuracy: data.accuracy,
+      clientGhostData: data.clientGhostData,
+      serverGhost: data.serverGhost,
+    };
   }
 
   cleanupRace(roomCode: string): void {

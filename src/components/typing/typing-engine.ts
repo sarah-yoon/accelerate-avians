@@ -7,7 +7,7 @@ export class TypingEngine {
   private _hasError = false;
   private _totalKeystrokes = 0;
   private _correctKeystrokes = 0;
-  private _ghostData: GhostDataPoint[] = [];
+  private _clientGhostData: GhostDataPoint[] = [];
   private _isComposing = false;
 
   constructor(passage: string) {
@@ -30,8 +30,8 @@ export class TypingEngine {
     return this._cursorPos >= this.passage.length;
   }
 
-  get ghostData(): GhostDataPoint[] {
-    return this._ghostData;
+  get clientGhostData(): GhostDataPoint[] {
+    return this._clientGhostData;
   }
 
   get totalKeystrokes(): number {
@@ -54,7 +54,7 @@ export class TypingEngine {
 
     const expected = this.passage[this._cursorPos];
     if (key === expected) {
-      this._ghostData.push({
+      this._clientGhostData.push({
         charIndex: this._cursorPos,
         ms: timestampMs,
       });
@@ -85,7 +85,7 @@ export class TypingEngine {
     this._hasError = false;
     this._totalKeystrokes = 0;
     this._correctKeystrokes = 0;
-    this._ghostData = [];
+    this._clientGhostData = [];
     this._isComposing = false;
   }
 }

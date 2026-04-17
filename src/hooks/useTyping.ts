@@ -8,7 +8,7 @@ interface UseTypingReturn {
   isComplete: boolean;
   wpm: number;
   accuracy: number;
-  ghostData: GhostDataPoint[];
+  clientGhostData: GhostDataPoint[];
   totalKeystrokes: number;
   correctKeystrokes: number;
   handleKeyDown: (e: KeyboardEvent) => void;
@@ -28,7 +28,7 @@ export function useTyping(
   const [isComplete, setIsComplete] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(0);
-  const [ghostData, setGhostData] = useState<GhostDataPoint[]>([]);
+  const [clientGhostData, setClientGhostData] = useState<GhostDataPoint[]>([]);
   const [totalKeystrokes, setTotalKeystrokes] = useState(0);
   const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
 
@@ -52,7 +52,7 @@ export function useTyping(
       setIsComplete(engine.isComplete);
       setWpm(engine.getCurrentWpm(elapsed));
       setAccuracy(engine.getAccuracy());
-      setGhostData([...engine.ghostData]);
+      setClientGhostData([...engine.clientGhostData]);
       setTotalKeystrokes(engine.totalKeystrokes);
       setCorrectKeystrokes(engine.correctKeystrokes);
     },
@@ -74,7 +74,7 @@ export function useTyping(
     setIsComplete(false);
     setWpm(0);
     setAccuracy(0);
-    setGhostData([]);
+    setClientGhostData([]);
     setTotalKeystrokes(0);
     setCorrectKeystrokes(0);
   }, []);
@@ -85,7 +85,7 @@ export function useTyping(
     isComplete,
     wpm,
     accuracy,
-    ghostData,
+    clientGhostData,
     totalKeystrokes,
     correctKeystrokes,
     handleKeyDown,

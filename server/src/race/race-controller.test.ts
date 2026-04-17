@@ -47,7 +47,7 @@ describe("RaceController", () => {
   let onRaceTimeout: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "performance"] });
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
     onRaceTimeout = vi.fn();
     controller = new RaceController(onRaceTimeout);
@@ -107,6 +107,11 @@ describe("RaceController", () => {
       const room = createMockRoom({ status: "racing", raceStartedAt: Date.now() });
       const passage = { id: "p1", text: "Hello world", charCount: 11, wordCount: 2 };
       controller.startRace(room, passage);
+
+      // Seed serverGhost: first sample at t=0, second at t=6000ms → 2 words/6s = 20 WPM
+      controller.updateCharIndex(room.code, "user1", 0);
+      vi.advanceTimersByTime(6000);
+      controller.updateCharIndex(room.code, "user1", 11);
 
       const result = controller.playerFinished(room.code, "user1", {
         ghostData: [
@@ -211,4 +216,101 @@ describe("RaceController", () => {
       ]);
     });
   });
+});
+
+function makeRoom(userIds: string[]): Room {
+  const players = new Map<string, RoomPlayer>();
+  userIds.forEach((userId, i) => {
+    players.set(userId, {
+      userId,
+      username: userId,
+      displayBird: "robin",
+      socketId: `sock${i}`,
+      isHost: i === 0,
+      isConnected: true,
+      disconnectedAt: null,
+    });
+  });
+  return {
+    code: "TEST01",
+    status: "waiting",
+    hostUserId: userIds[0],
+    difficulty: "medium",
+    players,
+    passageId: null,
+    passageText: null,
+    passageCharCount: null,
+    raceStartedAt: null,
+    maxDurationMs: null,
+    createdAt: Date.now(),
+    lastActivityAt: Date.now(),
+    raceTimeoutTimer: null,
+    progressBroadcastInterval: null,
+  };
+}
+
+describe("RaceController serverGhost", () => {
+  let controller: RaceController;
+
+  beforeEach(() => {
+    controller = new RaceController(() => {});
+  });
+
+  afterEach(() => {
+    controller.destroy();
+  });
+
+  it("records a serverGhost sample on every updateCharIndex with monotonic serverMs", async () => {
+    const room = makeRoom(["alice", "bob"]);
+    controller.startRace(room, { id: "p1", text: "hello world", charCount: 11, wordCount: 2 });
+
+    controller.updateCharIndex(room.code, "alice", 1);
+    await new Promise((r) => setTimeout(r, 5));
+    controller.updateCharIndex(room.code, "alice", 3);
+
+    const samples = controller.getServerGhost(room.code, "alice");
+    expect(samples).toHaveLength(2);
+    expect(samples[0].charIndex).toBe(1);
+    expect(samples[1].charIndex).toBe(3);
+    expect(samples[1].serverMs).toBeGreaterThan(samples[0].serverMs);
+  });
+
+  it("getFinishedPlayerData returns serverGhost alongside client data", () => {
+    const room = makeRoom(["alice", "bob"]);
+    controller.startRace(room, { id: "p1", text: "hello", charCount: 5, wordCount: 1 });
+    controller.updateCharIndex(room.code, "alice", 5);
+    controller.playerFinished(room.code, "alice", {
+      ghostData: [{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }],
+      correctKeystrokes: 5,
+      totalKeystrokes: 5,
+    });
+
+    const data = controller.getFinishedPlayerData(room.code, "alice");
+    expect(data).not.toBeNull();
+    expect(data!.serverGhost).toBeDefined();
+    expect(data!.serverGhost.length).toBeGreaterThan(0);
+    expect(data!.clientGhostData).toEqual([{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }]);
+  });
+
+  it("derives final WPM from serverGhost, ignoring client-supplied ghostData", async () => {
+    const room = makeRoom(["alice", "bob"]);
+    controller.startRace(room, { id: "p1", text: "twenty char passage.", charCount: 20, wordCount: 4 });
+
+    // Simulate 4 seconds of real typing on the server: 5 chars/sec
+    for (let i = 1; i <= 20; i++) {
+      controller.updateCharIndex(room.code, "alice", i);
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    // Client lies: claims it took 1 second (would be 240 WPM)
+    const result = controller.playerFinished(room.code, "alice", {
+      ghostData: [{ charIndex: 0, ms: 0 }, { charIndex: 20, ms: 1000 }],
+      correctKeystrokes: 20,
+      totalKeystrokes: 20,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.wpm).toBeGreaterThan(50);
+    expect(result!.wpm).toBeLessThan(70);
+  }, 10_000);
 });

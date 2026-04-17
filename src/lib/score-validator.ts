@@ -14,7 +14,7 @@ export function computeAccuracy(
 }
 
 interface ValidateScoreInput {
-  ghostData: GhostDataPoint[];
+  clientGhostData: GhostDataPoint[];
   wordCount: number;
   totalKeystrokes: number;
   correctKeystrokes: number;
@@ -25,13 +25,13 @@ type ValidationResult =
   | { valid: false; reason: string };
 
 export function validateScore(input: ValidateScoreInput): ValidationResult {
-  const { ghostData, wordCount, totalKeystrokes, correctKeystrokes } = input;
+  const { clientGhostData, wordCount, totalKeystrokes, correctKeystrokes } = input;
 
-  if (ghostData.length < 10) {
-    return { valid: false, reason: "ghostData must have at least 10 entries" };
+  if (clientGhostData.length < 10) {
+    return { valid: false, reason: "clientGhostData must have at least 10 entries" };
   }
 
-  const totalTimeMs = ghostData[ghostData.length - 1].ms;
+  const totalTimeMs = clientGhostData[clientGhostData.length - 1].ms;
   const wpm = computeWpm(wordCount, totalTimeMs);
   const accuracy = computeAccuracy(correctKeystrokes, totalKeystrokes);
 

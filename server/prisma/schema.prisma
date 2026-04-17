@@ -45,7 +45,9 @@ model Score {
   passageId  String
   wpm        Int
   accuracy   Float
-  ghostData  Json
+  clientGhostData Json
+  serverGhost     Json?
+  flagged         Boolean @default(false)
   createdAt  DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
@@ -92,7 +94,9 @@ model MatchPlayer {
   wpm        Int?
   accuracy   Float?
   placement  Int?
-  ghostData  Json?
+  clientGhostData Json?
+  serverGhost     Json?
+  flagged         Boolean @default(false)
   status     MatchPlayerStatus @default(racing)
   startedAt  DateTime          @default(now())
   finishedAt DateTime?

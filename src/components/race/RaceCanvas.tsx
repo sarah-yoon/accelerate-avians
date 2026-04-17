@@ -253,7 +253,7 @@ export function RaceCanvas({
             const ghostProgress = liveProgress !== undefined
               ? liveProgress
               : interpolateGhostProgress(
-                  ghost.ghostData,
+                  ghost.clientGhostData,
                   elapsed,
                   totalCharsRef.current
                 );

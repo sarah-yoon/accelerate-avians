@@ -49,4 +49,16 @@ describe("calculateResults", () => {
     // Should still compute based on elapsed time
     expect(result.wpm).toBe(60); // 10 words / (10000ms / 60000)
   });
+
+  it("derives WPM from server-stamped samples when given serverGhost shape", () => {
+    const samples = [
+      { charIndex: 0, serverMs: 0 },
+      { charIndex: 5, serverMs: 1500 },
+      { charIndex: 10, serverMs: 3000 },
+    ];
+    const result = calculateResults(samples, /* wordCount */ 2, 10, 10);
+    // 2 words / 3000ms × 60000 = 40
+    expect(result.wpm).toBe(40);
+    expect(result.accuracy).toBe(1);
+  });
 });

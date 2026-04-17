@@ -22,6 +22,7 @@ export async function GET(request: Request) {
 
   const where: Record<string, unknown> = {
     user: { clerkId: { not: { startsWith: "bot_" } } },
+    flagged: false,
   };
 
   if (difficulty && VALID_DIFFICULTIES.includes(difficulty)) {

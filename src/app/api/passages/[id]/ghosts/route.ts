@@ -30,7 +30,7 @@ export async function GET(
   // 1. Personal best (if userId resolved)
   if (userId) {
     const personalBest = await prisma.score.findFirst({
-      where: { passageId, userId },
+      where: { passageId, userId, flagged: false },
       orderBy: { wpm: "desc" },
       include: { user: { select: { id: true, username: true, displayBird: true } } },
     });
@@ -41,7 +41,7 @@ export async function GET(
         username: personalBest.user.username,
         displayBird: personalBest.user.displayBird,
         wpm: personalBest.wpm,
-        ghostData: personalBest.ghostData as { charIndex: number; ms: number }[],
+        clientGhostData: personalBest.clientGhostData as { charIndex: number; ms: number }[],
         isPersonalBest: true,
       });
     }
@@ -75,6 +75,7 @@ export async function GET(
         wpm: { gte: tier.min, lte: tier.max },
         user: { clerkId: { startsWith: "bot_" } },
         id: { notIn: ghosts.map((g) => g.id) },
+        flagged: false,
       },
       orderBy: { wpm: "asc" },
       include: { user: { select: { id: true, username: true, displayBird: true } } },
@@ -86,7 +87,7 @@ export async function GET(
         username: ghost.user.username,
         displayBird: ghost.user.displayBird,
         wpm: ghost.wpm,
-        ghostData: ghost.ghostData as { charIndex: number; ms: number }[],
+        clientGhostData: ghost.clientGhostData as { charIndex: number; ms: number }[],
       });
     }
   }
@@ -98,6 +99,7 @@ export async function GET(
         passageId,
         id: { notIn: ghosts.map((g) => g.id) },
         user: { clerkId: { startsWith: "bot_" } },
+        flagged: false,
       },
       take: 4 - ghosts.length,
       orderBy: { wpm: "asc" },
@@ -110,7 +112,7 @@ export async function GET(
         username: score.user.username,
         displayBird: score.user.displayBird,
         wpm: score.wpm,
-        ghostData: score.ghostData as { charIndex: number; ms: number }[],
+        clientGhostData: score.clientGhostData as { charIndex: number; ms: number }[],
       });
     }
   }

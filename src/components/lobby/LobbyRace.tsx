@@ -22,7 +22,7 @@ interface LobbyRaceProps {
   raceStartedAt: number | null;
   reconnectCharIndex: number | null;
   onProgress: (charIndex: number) => void;
-  onFinished: (ghostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
+  onFinished: (clientGhostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
 }
 
 export function LobbyRace({
@@ -47,7 +47,7 @@ export function LobbyRace({
     hasError,
     wpm,
     accuracy,
-    ghostData,
+    clientGhostData,
     correctKeystrokes,
     totalKeystrokes,
     handleKeyDown,
@@ -72,9 +72,9 @@ export function LobbyRace({
       setFinalWpm(wpm);
       setFinalAccuracy(accuracy);
       setPlayerFinished(true);
-      onFinished(ghostData, correctKeystrokes, totalKeystrokes);
+      onFinished(clientGhostData, correctKeystrokes, totalKeystrokes);
     }
-  }, [cursorPos, passage.charCount, racePhase, ghostData, correctKeystrokes, totalKeystrokes, onFinished]);
+  }, [cursorPos, passage.charCount, racePhase, clientGhostData, correctKeystrokes, totalKeystrokes, onFinished]);
 
   // Convert multiplayer players to GhostRacer format for the Canvas
   const currentPlayer = players.find((p) => p.userId === currentUserId);
@@ -125,7 +125,7 @@ export function LobbyRace({
       username: p.username,
       displayBird: p.displayBird,
       wpm: 0,
-      ghostData: [],
+      clientGhostData: [],
       isPersonalBest: false,
       _liveProgress: progress,
     } as GhostRacer & { _liveProgress: number };

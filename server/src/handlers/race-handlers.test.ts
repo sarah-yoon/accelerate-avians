@@ -69,6 +69,7 @@ function createMockRaceController() {
     getProgressSnapshot: vi.fn().mockReturnValue([]),
     getRankings: vi.fn().mockReturnValue([]),
     cleanupRace: vi.fn(),
+    getFinishedPlayerData: vi.fn().mockReturnValue(null),
   };
 }
 
@@ -385,11 +386,53 @@ describe("registerRaceHandlers", () => {
           wpm: 60,
           accuracy: 95.5,
           placement: 1,
-          ghostData: ghostData as never,
+          clientGhostData: ghostData as never,
+          serverGhost: [] as never,
+          flagged: false,
           status: "finished",
           finishedAt: expect.any(Date),
         },
       });
+    });
+
+    it("persists clientGhostData + serverGhost + flagged=false on MatchPlayer at finish", async () => {
+      // arrange: a match in progress with two players, alice has typed; bob hasn't finished
+      const room = makeRoom({ status: "racing", raceStartedAt: Date.now() });
+      roomManager.getRoom.mockReturnValue(room);
+
+      // simulate alice progress on the controller (real mock, just call updateCharIndex)
+      raceController.updateCharIndex("ROOM1", "alice", 5);
+
+      raceController.playerFinished.mockReturnValue({
+        placement: 1,
+        wpm: 60,
+        accuracy: 100,
+      });
+      raceController.getFinishedPlayerData = vi.fn().mockReturnValue({
+        wpm: 60,
+        accuracy: 100,
+        clientGhostData: [{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }],
+        serverGhost: [{ charIndex: 0, serverMs: 0 }, { charIndex: 5, serverMs: 100 }],
+      });
+      raceController.allPlayersFinished.mockReturnValue(false);
+
+      const matchRecord = { id: "match_1" };
+      mockPrisma.match.findUnique.mockResolvedValue(matchRecord as any);
+      mockPrisma.matchPlayer.updateMany.mockResolvedValue({ count: 1 } as any);
+
+      // act: client emits player-finished with ghostData
+      await socket._trigger("player-finished", {
+        ghostData: [{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }],
+        correctKeystrokes: 5,
+        totalKeystrokes: 5,
+      });
+
+      // assert: matchPlayer updated with both ghost fields
+      const updateCall = mockPrisma.matchPlayer.updateMany.mock.calls.at(-1)?.[0];
+      expect(updateCall.data.clientGhostData).toEqual([{ charIndex: 0, ms: 0 }, { charIndex: 5, ms: 100 }]);
+      expect(updateCall.data.serverGhost).toBeDefined();
+      expect(Array.isArray(updateCall.data.serverGhost)).toBe(true);
+      expect(updateCall.data.flagged).toBe(false);
     });
 
     it("calls finishRace when all players finished", async () => {

@@ -34,7 +34,7 @@ interface UseMultiplayerRaceReturn {
   joinRoom: (roomCode: string) => void;
   startRace: () => void;
   sendProgress: (charIndex: number) => void;
-  sendFinished: (ghostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
+  sendFinished: (clientGhostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
   playAgain: () => void;
   leaveLobby: () => void;
   changeDifficulty: (difficulty: Difficulty) => void;
@@ -230,9 +230,10 @@ export function useMultiplayerRace(
   );
 
   const sendFinished = useCallback(
-    (ghostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => {
+    (clientGhostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => {
       if (!socket) return;
-      socket.emit("player-finished", { ghostData, correctKeystrokes, totalKeystrokes });
+      // Wire protocol key stays "ghostData" — server handler expects that name
+      socket.emit("player-finished", { ghostData: clientGhostData, correctKeystrokes, totalKeystrokes });
     },
     [socket]
   );
