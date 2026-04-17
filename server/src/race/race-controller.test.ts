@@ -245,8 +245,17 @@ function makeRoom(userIds: string[]): Room {
 }
 
 describe("RaceController serverGhost", () => {
+  let controller: RaceController;
+
+  beforeEach(() => {
+    controller = new RaceController(() => {});
+  });
+
+  afterEach(() => {
+    controller.destroy();
+  });
+
   it("records a serverGhost sample on every updateCharIndex with monotonic serverMs", async () => {
-    const controller = new RaceController(() => {});
     const room = makeRoom(["alice", "bob"]);
     controller.startRace(room, { id: "p1", text: "hello world", charCount: 11, wordCount: 2 });
 
