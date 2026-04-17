@@ -107,3 +107,8 @@ export interface SocketData {
   displayBird: string;
   roomCode: string | null;
 }
+
+export interface ServerGhostPoint {
+  charIndex: number;
+  serverMs: number;
+}
