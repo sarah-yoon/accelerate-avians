@@ -4,7 +4,6 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketData,
-  RoomStatus,
 } from "../types.js";
 import type { RoomManager } from "../rooms/room-manager.js";
 import type { RaceController } from "../race/race-controller.js";
@@ -21,9 +20,6 @@ type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<strin
  * Spec § 2.3 step 5: "RECONNECT_WINDOW_MS = 20_000".
  */
 const RECONNECT_WINDOW_MS = 20_000;
-
-/** Legacy grace period used by the old handleDisconnect path (waiting-room, pre-race). */
-const RECONNECT_GRACE_MS = 30_000;
 
 /**
  * Number of times a single resumeToken may be used for verification before it
@@ -84,6 +80,15 @@ export function registerSocket(socket: AppSocket): void {
 
 export function unregisterSocket(socketId: string): void {
   defaultSocketRegistry.delete(socketId);
+}
+
+/**
+ * Resets the module-level tokenAttempts counter map.
+ * Call this in `beforeEach` for any test suite that exercises handleNewReconnect
+ * to prevent cross-test pollution of attempt counts.
+ */
+export function resetTokenAttempts(): void {
+  tokenAttempts.clear();
 }
 
 // ── Session helpers ───────────────────────────────────────────────────────────
@@ -204,7 +209,17 @@ export async function handleNewReconnect(
   socketRegistry: Map<string, AppSocket> = defaultSocketRegistry,
   sessionStore: Map<string, SessionEntry> = defaultSessionStore
 ): Promise<void> {
-  // ── Step 1: Verify HMAC + expiry ──────────────────────────────────────────
+  // ── Step 1: Per-token attempt cap (keyed by raw token string, even if
+  //    malformed) — must be incremented BEFORE verifyResumeToken so that a
+  //    client hammering with garbage tokens cannot bypass the 3-attempt limit.
+  const attempts = (tokenAttempts.get(token) ?? 0) + 1;
+  tokenAttempts.set(token, attempts);
+  if (attempts > MAX_TOKEN_ATTEMPTS) {
+    newSocket.emit("reconnect-error", { reason: "token-attempt-cap-exceeded" });
+    return;
+  }
+
+  // ── Step 2: Verify HMAC + expiry ─────────────────────────────────────────
   const verifyResult = verifyResumeToken(secret, token);
   if (!verifyResult.valid) {
     newSocket.emit("reconnect-error", { reason: verifyResult.reason });
@@ -212,14 +227,6 @@ export async function handleNewReconnect(
   }
 
   const { userId, roomCode, sessionEpoch: tokenEpoch } = verifyResult.payload;
-
-  // ── Step 2: Per-token attempt cap ─────────────────────────────────────────
-  const attempts = (tokenAttempts.get(token) ?? 0) + 1;
-  tokenAttempts.set(token, attempts);
-  if (attempts > MAX_TOKEN_ATTEMPTS) {
-    newSocket.emit("reconnect-error", { reason: "token-attempt-cap-exceeded" });
-    return;
-  }
 
   // ── Step 3: Epoch check ───────────────────────────────────────────────────
   const key = sessionKey(userId, roomCode);
@@ -361,89 +368,6 @@ export function handleDisconnect(
       }
     }
   }
-}
-
-// ── handleReconnect (existing — token-less path kept for backward-compat) ─────
-
-export function handleReconnect(
-  io: AppServer,
-  socket: AppSocket,
-  roomManager: RoomManager,
-  raceController: RaceController,
-  roomCode: string,
-  userId: string
-): boolean {
-  const room = roomManager.getRoom(roomCode);
-  if (!room) return false;
-
-  const success = roomManager.reconnectPlayer(roomCode, userId, socket.id);
-  if (!success) return false;
-
-  const timerKey = `${roomCode}:${userId}`;
-  const timer = disconnectTimers.get(timerKey);
-  if (timer) {
-    clearTimeout(timer);
-    disconnectTimers.delete(timerKey);
-  }
-
-  socket.data.roomCode = roomCode;
-  socket.join(roomCode);
-
-  io.to(roomCode).emit("player-reconnected", { userId });
-
-  // Build room state for reconnecting player
-  const players = Array.from(room.players.values()).map((p) => ({
-    userId: p.userId,
-    username: p.username,
-    displayBird: p.displayBird,
-    isHost: p.isHost,
-    isConnected: p.isConnected,
-  }));
-
-  const statePayload: {
-    code: string;
-    status: RoomStatus;
-    hostUserId: string;
-    yourUserId: string;
-    difficulty: "short" | "medium" | "long";
-    players: typeof players;
-    passage?: { id: string; text: string; charCount: number; wordCount: number };
-    raceStartedAt?: number;
-    yourCharIndex?: number;
-  } = {
-    code: room.code,
-    status: room.status,
-    hostUserId: room.hostUserId,
-    yourUserId: userId,
-    difficulty: room.difficulty,
-    players,
-  };
-
-  if (
-    room.status === "racing" &&
-    room.passageId &&
-    room.passageText &&
-    room.passageCharCount
-  ) {
-    statePayload.passage = {
-      id: room.passageId,
-      text: room.passageText,
-      charCount: room.passageCharCount,
-      wordCount: room.passageText.split(/\s+/).length,
-    };
-    statePayload.raceStartedAt = room.raceStartedAt ?? undefined;
-
-    const progressSnapshot = raceController.getProgressSnapshot(roomCode);
-    const myProgress = progressSnapshot.find((p) => p.userId === userId);
-    if (myProgress) {
-      statePayload.yourCharIndex = Math.floor(
-        myProgress.progress * room.passageCharCount
-      );
-    }
-  }
-
-  socket.emit("room-state", statePayload);
-  return true;
 }
 
 // ── emitRoomState ─────────────────────────────────────────────────────────────

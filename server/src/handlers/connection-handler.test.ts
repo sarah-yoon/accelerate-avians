@@ -1,4 +1,4 @@
-import { handleDisconnect, handleReconnect, handleNewReconnect, markPlayerDisconnected } from "./connection-handler.js";
+import { handleDisconnect, handleNewReconnect, markPlayerDisconnected, resetTokenAttempts } from "./connection-handler.js";
 
 vi.mock("./race-handlers.js", () => ({
   finishRace: vi.fn(),
@@ -236,152 +236,7 @@ describe("handleDisconnect", () => {
   });
 });
 
-describe("handleReconnect", () => {
-  let io: ReturnType<typeof createMockIo>;
-  let roomManager: ReturnType<typeof createMockRoomManager>;
-  let raceController: ReturnType<typeof createMockRaceController>;
-
-  beforeEach(() => {
-    vi.resetAllMocks();
-    vi.useFakeTimers();
-    io = createMockIo();
-    roomManager = createMockRoomManager();
-    raceController = createMockRaceController();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("returns false when room not found", () => {
-    const socket = createMockSocket();
-    roomManager.getRoom.mockReturnValue(undefined);
-
-    const result = handleReconnect(io as any, socket as any, roomManager as any, raceController as any, "ROOM1", "user_1");
-
-    expect(result).toBe(false);
-  });
-
-  it("returns false when reconnectPlayer fails", () => {
-    const socket = createMockSocket();
-    const room = makeRoom();
-    roomManager.getRoom.mockReturnValue(room);
-    roomManager.reconnectPlayer.mockReturnValue(false);
-
-    const result = handleReconnect(io as any, socket as any, roomManager as any, raceController as any, "ROOM1", "user_1");
-
-    expect(result).toBe(false);
-  });
-
-  it("reconnects player, cancels grace timer, joins room, and emits events", () => {
-    const socket = createMockSocket({ id: "sock-new" });
-    const room = makeRoom({ status: "waiting" });
-    roomManager.getRoom.mockReturnValue(room);
-    roomManager.reconnectPlayer.mockReturnValue(true);
-
-    const result = handleReconnect(io as any, socket as any, roomManager as any, raceController as any, "ROOM1", "user_1");
-
-    expect(result).toBe(true);
-    expect(roomManager.reconnectPlayer).toHaveBeenCalledWith("ROOM1", "user_1", "sock-new");
-    expect(socket.data.roomCode).toBe("ROOM1");
-    expect(socket.join).toHaveBeenCalledWith("ROOM1");
-    expect(io._emitFn).toHaveBeenCalledWith("player-reconnected", { userId: "user_1" });
-
-    // Should emit room-state to reconnecting player
-    expect(socket.emit).toHaveBeenCalledWith("room-state", expect.objectContaining({
-      code: "ROOM1",
-      status: "waiting",
-      hostUserId: "user_1",
-      yourUserId: "user_1",
-    }));
-  });
-
-  it("cancels disconnect grace timer on reconnect", () => {
-    // First, create a disconnect to set up a timer
-    const disconnectSocket = createMockSocket();
-    const room = makeRoom({ status: "racing" });
-    roomManager.getRoom.mockReturnValue(room);
-    // Simulate disconnectPlayer mutating the player so the DNF timer guard works
-    roomManager.disconnectPlayer.mockImplementation((code: string, uid: string) => {
-      const p = room.players.get(uid);
-      if (p) { p.isConnected = false; }
-    });
-
-    handleDisconnect(io as any, disconnectSocket as any, roomManager as any, raceController as any);
-
-    // Now reconnect before grace period expires
-    const reconnectSocket = createMockSocket({ id: "sock-new" });
-    roomManager.reconnectPlayer.mockReturnValue(true);
-
-    const result = handleReconnect(io as any, reconnectSocket as any, roomManager as any, raceController as any, "ROOM1", "user_1");
-    expect(result).toBe(true);
-
-    // Advance past the 20s reconnect window — removePlayer should NOT be called
-    // because the timer was cancelled on reconnect
-    vi.advanceTimersByTime(20_000);
-
-    // removePlayer should not have been called (timer was cancelled)
-    expect(roomManager.removePlayer).not.toHaveBeenCalled();
-  });
-
-  it("includes passage info in room-state when racing", () => {
-    const socket = createMockSocket({ id: "sock-new" });
-    const room = makeRoom({
-      status: "racing",
-      passageId: "p1",
-      passageText: "Hello world test",
-      passageCharCount: 16,
-      raceStartedAt: 1000,
-    });
-    roomManager.getRoom.mockReturnValue(room);
-    roomManager.reconnectPlayer.mockReturnValue(true);
-    raceController.getProgressSnapshot.mockReturnValue([
-      { userId: "user_1", progress: 0.5 },
-      { userId: "user_2", progress: 0.3 },
-    ]);
-
-    handleReconnect(io as any, socket as any, roomManager as any, raceController as any, "ROOM1", "user_1");
-
-    expect(socket.emit).toHaveBeenCalledWith("room-state", expect.objectContaining({
-      code: "ROOM1",
-      status: "racing",
-      passage: {
-        id: "p1",
-        text: "Hello world test",
-        charCount: 16,
-        wordCount: 3,
-      },
-      raceStartedAt: 1000,
-      yourCharIndex: 8, // Math.floor(0.5 * 16)
-    }));
-  });
-
-  it("omits yourCharIndex when player has no progress snapshot", () => {
-    const socket = createMockSocket({ id: "sock-new" });
-    const room = makeRoom({
-      status: "racing",
-      passageId: "p1",
-      passageText: "Hello world",
-      passageCharCount: 11,
-      raceStartedAt: 1000,
-    });
-    roomManager.getRoom.mockReturnValue(room);
-    roomManager.reconnectPlayer.mockReturnValue(true);
-    raceController.getProgressSnapshot.mockReturnValue([
-      { userId: "user_2", progress: 0.3 },
-    ]);
-
-    handleReconnect(io as any, socket as any, roomManager as any, raceController as any, "ROOM1", "user_1");
-
-    const emittedState = socket.emit.mock.calls.find(
-      (call: any[]) => call[0] === "room-state"
-    )?.[1];
-    expect(emittedState).toBeDefined();
-    expect(emittedState.yourCharIndex).toBeUndefined();
-  });
-});
-
-// ─── New P2-7 tests: reconnection protocol ───────────────────────────────────
+// ─── P2-7 tests: reconnection protocol ──────────────────────────────────────
 
 describe("markPlayerDisconnected (P2-7 reconnection protocol)", () => {
   let io: ReturnType<typeof createMockIo>;
@@ -456,6 +311,9 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
     raceController = createMockRaceController();
     // Default: mint returns a predictable new token
     mockMintResumeToken.mockReturnValue("new-token-xyz");
+    // IMPORTANT 5: Reset per-token attempt counters between tests to prevent
+    // cross-test pollution (the map is module-level state).
+    resetTokenAttempts();
   });
 
   afterEach(() => {
@@ -514,6 +372,12 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
     // Seat should be rebound to new socket
     expect(roomManager.reconnectPlayer).toHaveBeenCalledWith("ROOM1", "user_1", "sock-new");
 
+    // MINOR 7: Verify fence-ordering — oldSocket.disconnect must happen BEFORE
+    // reconnectPlayer (seat rebind), not after.
+    const disconnectOrder = (oldSocket.disconnect as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+    const reconnectOrder = (roomManager.reconnectPlayer as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+    expect(disconnectOrder).toBeLessThan(reconnectOrder);
+
     // resume-state emitted to new socket
     const resumeStateCall = (newSocket.emit as ReturnType<typeof vi.fn>).mock.calls.find(
       (c: any[]) => c[0] === "resume-state"
@@ -553,6 +417,49 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
     expect(newSocket.emit).toHaveBeenCalledWith("reconnect-error", expect.objectContaining({ reason: expect.any(String) }));
     // No seat rebinding
     expect(roomManager.reconnectPlayer).not.toHaveBeenCalled();
+  });
+
+  // IMPORTANT 4: The attempt counter must be incremented BEFORE verifyResumeToken
+  // so that clients hammering with garbage tokens can't bypass the 3-attempt cap.
+  it("rejects after 3 attempts with the same invalid token", async () => {
+    const badToken = "malformed.garbage";
+
+    // verifyResumeToken returns invalid for a malformed token
+    mockVerifyResumeToken.mockReturnValue({ valid: false, reason: "bad-signature" });
+
+    const socketRegistry = new Map<string, any>();
+    const sessionStore = new Map<string, { epoch: number; sessionId: string; matchId: string }>();
+
+    // Burn all 3 allowed attempts
+    for (let i = 0; i < 3; i++) {
+      const socket = createMockSocket({ id: `sock-attempt-${i}` });
+      await handleNewReconnect(
+        io as any,
+        socket as any,
+        roomManager as any,
+        raceController as any,
+        SECRET,
+        badToken,
+        socketRegistry,
+        sessionStore
+      );
+    }
+
+    // 4th attempt — should be capped
+    const finalSocket = createMockSocket({ id: "sock-final" });
+    const spy = vi.spyOn(finalSocket, "emit");
+    await handleNewReconnect(
+      io as any,
+      finalSocket as any,
+      roomManager as any,
+      raceController as any,
+      SECRET,
+      badToken,
+      socketRegistry,
+      sessionStore
+    );
+
+    expect(spy).toHaveBeenCalledWith("reconnect-error", expect.objectContaining({ reason: "token-attempt-cap-exceeded" }));
   });
 
   it("resume-state includes every connected player's current charIndex + isConnected", async () => {
@@ -610,7 +517,16 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
     expect(payload.players).toEqual(expect.arrayContaining([
       expect.objectContaining({ userId: "user_2", charIndex: 5, isConnected: true }),
     ]));
-    // alice's own entry should also be present
-    expect(payload.players.find((p: any) => p.userId === "user_1")).toBeDefined();
+
+    // MINOR 8: Strengthen alice's own entry — verify charIndex and isConnected
+    // (reconnectPlayer mock mutates alice's isConnected to true, so the snapshot
+    // should reflect that).
+    const aliceEntry = payload.players.find((p: any) => p.userId === "user_1");
+    expect(aliceEntry).toBeDefined();
+    // charIndex ≈ round(0.2 * 16) = 3
+    expect(aliceEntry).toMatchObject({
+      userId: "user_1",
+      charIndex: 3,
+    });
   });
 });

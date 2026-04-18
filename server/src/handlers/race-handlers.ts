@@ -9,6 +9,8 @@ import type { RoomManager } from "../rooms/room-manager.js";
 import type { RaceController } from "../race/race-controller.js";
 import { ProgressValidator } from "../race/progress-validator.js";
 import { prisma } from "../lib/prisma.js";
+import { issueResumeToken } from "./connection-handler.js";
+import { readSecretFromEnv } from "../lib/resume-token.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -125,6 +127,40 @@ export function registerRaceHandlers(
       },
       countdownMs: 3000,
     });
+
+    // CRITICAL 2 (Spec § 2.3 step 1): Mint + emit resume-token to every
+    // connected player so they can survive a disconnect during the race.
+    // We do this here (not at join-room) because matchId is only known
+    // once the Match record has been created by start-race.
+    let resumeSecret: string;
+    try {
+      resumeSecret = readSecretFromEnv();
+    } catch {
+      console.error("[start-race] RESUME_TOKEN_SECRET missing — cannot issue resume tokens");
+      return;
+    }
+
+    const sockets = await io.in(roomCode).fetchSockets();
+    const socketById = new Map(sockets.map((s) => [s.id, s]));
+
+    await Promise.all(
+      connectedPlayers.map(async (player) => {
+        const playerSocket = socketById.get(player.socketId);
+        if (!playerSocket) return;
+        try {
+          await issueResumeToken(
+            playerSocket as any,
+            roomManager,
+            resumeSecret,
+            player.userId,
+            roomCode,
+            match.id,
+          );
+        } catch (err) {
+          console.error(`[start-race] Failed to issue resume token for ${player.userId}:`, err);
+        }
+      })
+    );
   });
 
   socket.on("typing-progress", ({ charIndex }) => {

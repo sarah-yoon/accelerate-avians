@@ -7,7 +7,13 @@ import { RoomManager } from "./rooms/room-manager.js";
 import { RaceController } from "./race/race-controller.js";
 import { registerRoomHandlers } from "./handlers/room-handlers.js";
 import { registerRaceHandlers, finishRace } from "./handlers/race-handlers.js";
-import { handleDisconnect } from "./handlers/connection-handler.js";
+import {
+  handleDisconnect,
+  handleNewReconnect,
+  registerSocket,
+  unregisterSocket,
+  defaultSessionStore,
+} from "./handlers/connection-handler.js";
 import { readSecretFromEnv } from "./lib/resume-token.js";
 import type {
   ClientToServerEvents,
@@ -83,12 +89,31 @@ io.use(createClerkAuthMiddleware(CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY));
 io.on("connection", (socket) => {
   console.log(`Connected: ${socket.id} (user: ${socket.data.userId})`);
 
+  // CRITICAL 3: Register socket so handleNewReconnect can fence old sockets.
+  registerSocket(socket);
+
   // Register all event handlers
   registerRoomHandlers(io, socket, roomManager);
   registerRaceHandlers(io, socket, roomManager, raceController);
 
+  // CRITICAL 1: Wire the token-based reconnect protocol (Spec § 2.3 step 6).
+  socket.on("reconnect", async ({ token }) => {
+    await handleNewReconnect(
+      io,
+      socket,
+      roomManager,
+      raceController,
+      RESUME_TOKEN_SECRET,
+      token,
+      /* socketRegistry */ undefined,  // uses defaultSocketRegistry
+      defaultSessionStore,
+    );
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`Disconnected: ${socket.id} (reason: ${reason})`);
+    // CRITICAL 3: Unregister socket on disconnect to keep registry clean.
+    unregisterSocket(socket.id);
     handleDisconnect(io, socket, roomManager, raceController);
   });
 });
