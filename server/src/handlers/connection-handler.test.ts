@@ -1,4 +1,5 @@
-import { handleDisconnect, handleNewReconnect, markPlayerDisconnected, resetTokenAttempts } from "./connection-handler.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { handleDisconnect, handleNewReconnect, markPlayerDisconnected, resetTokenAttempts, SlowConsumerSampler, SLOW_BUFFER_LIMIT_BYTES } from "./connection-handler.js";
 
 vi.mock("./race-handlers.js", () => ({
   finishRace: vi.fn(),
@@ -528,5 +529,40 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
       userId: "user_1",
       charIndex: 3,
     });
+  });
+});
+
+describe("SlowConsumerSampler", () => {
+  it("disconnects a socket whose outgoing buffer exceeds 64KB for two consecutive samples", () => {
+    const socket = { disconnect: vi.fn(), conn: { transport: { writable: { bufferedAmount: 70_000 } } } };
+    const sampler = new SlowConsumerSampler(socket as any);
+    sampler.sample(); // first over threshold
+    expect(socket.disconnect).not.toHaveBeenCalled();
+    sampler.sample(); // second consecutive over threshold
+    expect(socket.disconnect).toHaveBeenCalledWith("buffer-overflow");
+  });
+
+  it("does not disconnect if the buffer drops below threshold between samples", () => {
+    const socket = { disconnect: vi.fn(), conn: { transport: { writable: { bufferedAmount: 70_000 } } } };
+    const sampler = new SlowConsumerSampler(socket as any);
+    sampler.sample(); // over
+    (socket.conn.transport.writable as any).bufferedAmount = 1000; // under
+    sampler.sample(); // resets consecutive counter
+    (socket.conn.transport.writable as any).bufferedAmount = 70_000;
+    sampler.sample(); // only 1 consecutive, no disconnect
+    expect(socket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it("handles missing transport.writable gracefully (bufferedAmount falls back to 0)", () => {
+    const socket = { disconnect: vi.fn(), conn: undefined };
+    const sampler = new SlowConsumerSampler(socket as any);
+    sampler.sample();
+    sampler.sample();
+    sampler.sample();
+    expect(socket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it("exports SLOW_BUFFER_LIMIT_BYTES constant equal to 64 * 1024", () => {
+    expect(SLOW_BUFFER_LIMIT_BYTES).toBe(64 * 1024);
   });
 });

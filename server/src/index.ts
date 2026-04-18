@@ -13,6 +13,7 @@ import {
   registerSocket,
   unregisterSocket,
   defaultSessionStore,
+  SlowConsumerSampler,
 } from "./handlers/connection-handler.js";
 import { readSecretFromEnv } from "./lib/resume-token.js";
 import type {
@@ -96,6 +97,11 @@ io.on("connection", (socket) => {
   registerRoomHandlers(io, socket, roomManager);
   registerRaceHandlers(io, socket, roomManager, raceController);
 
+  // Spec § 2.4: Sample each socket's outgoing buffer every 2 s; disconnect
+  // slow consumers that exceed 64 KB for two consecutive samples.
+  const slowConsumerSampler = new SlowConsumerSampler(socket);
+  const slowConsumerInterval = setInterval(() => slowConsumerSampler.sample(), 2000);
+
   // CRITICAL 1: Wire the token-based reconnect protocol (Spec § 2.3 step 6).
   socket.on("reconnect", async ({ token }) => {
     await handleNewReconnect(
@@ -112,6 +118,8 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", (reason) => {
     console.log(`Disconnected: ${socket.id} (reason: ${reason})`);
+    // Clean up the slow-consumer sampling interval.
+    clearInterval(slowConsumerInterval);
     // CRITICAL 3: Unregister socket on disconnect to keep registry clean.
     unregisterSocket(socket.id);
     handleDisconnect(io, socket, roomManager, raceController);

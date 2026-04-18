@@ -11,6 +11,37 @@ import { finishRace } from "./race-handlers.js";
 import { mintResumeToken, verifyResumeToken } from "../lib/resume-token.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+
+// ── SlowConsumerSampler ───────────────────────────────────────────────────────
+
+/**
+ * Maximum outgoing buffer size before a socket is considered a slow consumer.
+ * Spec § 2.4: 64 KB.
+ */
+export const SLOW_BUFFER_LIMIT_BYTES = 64 * 1024;
+
+/**
+ * Samples a socket's outgoing buffer every call. If the buffered amount
+ * exceeds SLOW_BUFFER_LIMIT_BYTES for TWO consecutive samples the socket is
+ * force-disconnected with reason "buffer-overflow".
+ *
+ * Spec § 2.4: sampled every 2 seconds by the production interval.
+ */
+export class SlowConsumerSampler {
+  private consecutive = 0;
+  constructor(private socket: Socket) {}
+  sample(): void {
+    const buffered = (this.socket as any).conn?.transport?.writable?.bufferedAmount ?? 0;
+    if (buffered > SLOW_BUFFER_LIMIT_BYTES) {
+      this.consecutive++;
+      if (this.consecutive >= 2) {
+        this.socket.disconnect("buffer-overflow" as any);
+      }
+    } else {
+      this.consecutive = 0;
+    }
+  }
+}
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
