@@ -53,8 +53,11 @@ const io = new Server<
     origin: CORS_ORIGIN,
     methods: ["GET", "POST"],
   },
-  pingInterval: 25000,
-  pingTimeout: 60000,
+  transports: ['websocket'],
+  pingInterval: 5_000,
+  pingTimeout: 8_000,
+  perMessageDeflate: false,
+  maxHttpBufferSize: 16_384,
   connectionStateRecovery: {
     maxDisconnectionDuration: 30_000,
   },
