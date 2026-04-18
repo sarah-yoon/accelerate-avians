@@ -79,6 +79,7 @@ model Match {
   status    MatchStatus @default(waiting)
   startedAt DateTime?
   createdAt DateTime    @default(now())
+  epochs    Json        @default("{}")
 
   passage Passage      @relation(fields: [passageId], references: [id])
   players MatchPlayer[]
