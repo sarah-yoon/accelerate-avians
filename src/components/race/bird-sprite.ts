@@ -15,6 +15,13 @@ export class BirdSprite {
     return this._currentFrame;
   }
 
+  /** Hot-swap the playback rate without resetting the frame or accumulator. */
+  setFps(fps: number): void {
+    if (fps === this.fps) return;
+    this.fps = fps;
+    this.msPerFrame = 1000 / fps;
+  }
+
   update(deltaMs: number): void {
     this.accumulator += deltaMs;
     while (this.accumulator >= this.msPerFrame) {

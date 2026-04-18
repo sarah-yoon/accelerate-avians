@@ -131,6 +131,17 @@ export function LobbyRace({
     } as GhostRacer & { _liveProgress: number };
   });
 
+  // Build isConnected map for the canvas so it can show the disconnect bubble.
+  // TODO(P2-12): samplesRef, clockSyncIsReady, and toServerTime will also be
+  // threaded through here once useMultiplayerRace populates them.
+  const ghostConnectedStates = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const p of otherPlayers) {
+      map.set(p.userId, p.isConnected);
+    }
+    return map;
+  }, [otherPlayers]);
+
   // Determine canvas phase — show "finished" when player completes to trigger confetti
   const playerProgress = passage.charCount > 0 ? cursorPos / passage.charCount : 0;
   const elapsedMs = raceStartedAt ? performance.now() - raceStartedAt : 0;
@@ -148,6 +159,7 @@ export function LobbyRace({
     <div className="w-full max-w-[900px]">
       {/* Canvas + overlay container */}
       <div className="mb-4 relative">
+        {/* samplesRef, clockSyncIsReady, toServerTime are wired in P2-12 */}
         <RaceCanvas
           phase={playerFinished ? "finished" : racePhase === "countdown" ? "countdown" : "racing"}
           countdownValue={countdownValue}
@@ -159,6 +171,7 @@ export function LobbyRace({
           raceStartTime={raceStartedAt}
           wpm={wpm}
           backgroundSeed={backgroundSeed}
+          ghostConnectedStates={ghostConnectedStates}
         />
       </div>
 

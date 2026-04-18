@@ -13,6 +13,13 @@ import { BirdSprite } from "./bird-sprite";
 import type { RacePhase, GhostRacer } from "@/types";
 import type { Racer, RaceRendererState } from "./race-renderer";
 import { interpolateGhostProgress } from "./race-renderer";
+import {
+  computeInterpolatedCharIndex,
+  type Sample,
+} from "@/hooks/useInterpolatedProgress";
+
+/** How long with no new sample before we treat a ghost as transiently frozen. */
+const FREEZE_HEURISTIC_MS = 150;
 
 interface RaceCanvasProps {
   phase: RacePhase;
@@ -25,6 +32,31 @@ interface RaceCanvasProps {
   raceStartTime: number | null;
   wpm: number;
   backgroundSeed?: number;
+  /**
+   * Per-opponent sample buffer, keyed by userId.
+   * Populated by useMultiplayerRace (Task 12).  Passing null/undefined falls
+   * back to the legacy _liveProgress path so existing behaviour is preserved
+   * until P2-12 is wired.
+   */
+  samplesRef?: React.RefObject<Map<string, Sample[]>>;
+  /**
+   * Returns true once the clock-sync has at least 5 handshake samples.
+   * Used to choose steady-state (200 ms) vs warmup (350 ms) render lag.
+   * TODO(P2-12): wire from useMultiplayerRace / ClockSync.
+   */
+  clockSyncIsReady?: () => boolean;
+  /**
+   * Converts a client-local performance.now() timestamp to adjusted server
+   * time.  Used by the interpolation render to pick the right render point.
+   * TODO(P2-12): wire from ClockSync.toServerTime.
+   */
+  toServerTime?: (clientMs: number) => number;
+  /**
+   * isConnected state per opponent userId.
+   * Drives the disconnect "..." bubble per spec § 2.2.1.
+   * TODO(P2-12): populated from useMultiplayerRace players array.
+   */
+  ghostConnectedStates?: Map<string, boolean>;
 }
 
 const MINIMAP_ICON = 24;
@@ -113,6 +145,10 @@ export function RaceCanvas({
   raceStartTime,
   wpm,
   backgroundSeed,
+  samplesRef,
+  clockSyncIsReady,
+  toServerTime,
+  ghostConnectedStates,
 }: RaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -159,6 +195,8 @@ export function RaceCanvas({
             renderedX: 8,
             isGhost: false,
             isPlayer: true,
+            isDisconnected: false,
+            isFrozen: false,
           },
           ...ghosts.map((ghost, i) => ({
             id: ghost.id,
@@ -169,6 +207,8 @@ export function RaceCanvas({
             renderedX: 8,
             isGhost: true,
             isPlayer: false,
+            isDisconnected: false,
+            isFrozen: false,
           })),
         ];
 
@@ -192,6 +232,12 @@ export function RaceCanvas({
   const totalCharsRef = useRef(totalChars);
   const raceStartTimeRef = useRef(raceStartTime);
 
+  // Refs for optional interpolation props — kept in refs so the animation
+  // loop (which closes over them once at mount) always reads the latest value.
+  const clockSyncIsReadyRef = useRef(clockSyncIsReady);
+  const toServerTimeRef = useRef(toServerTime);
+  const ghostConnectedStatesRef = useRef(ghostConnectedStates);
+
   useEffect(() => {
     // Trigger confetti when race finishes
     if (phase === "finished" && phaseRef.current !== "finished") {
@@ -211,6 +257,9 @@ export function RaceCanvas({
   const wpmRef = useRef(wpm);
   useEffect(() => { raceStartTimeRef.current = raceStartTime; }, [raceStartTime]);
   useEffect(() => { wpmRef.current = wpm; }, [wpm]);
+  useEffect(() => { clockSyncIsReadyRef.current = clockSyncIsReady; }, [clockSyncIsReady]);
+  useEffect(() => { toServerTimeRef.current = toServerTime; }, [toServerTime]);
+  useEffect(() => { ghostConnectedStatesRef.current = ghostConnectedStates; }, [ghostConnectedStates]);
 
   // Animation loop using refs to avoid stale closures and self-reference issues
   useEffect(() => {
@@ -245,20 +294,63 @@ export function RaceCanvas({
       // Update ghost positions — keep running even after player finishes
       if (raceStartTimeRef.current && (phaseRef.current === "racing" || phaseRef.current === "finished")) {
         const elapsed = performance.now() - raceStartTimeRef.current;
+        const now = performance.now();
+
+        // Steady-state render lag: 200 ms, warmup: 350 ms (until clock-sync has
+        // 5 samples). TODO(P2-12): clockSyncIsReady and toServerTime are wired
+        // here and will be non-null once useMultiplayerRace populates them.
+        const isReady = clockSyncIsReadyRef.current?.() ?? false;
+        const RENDER_LAG_MS = isReady ? 200 : 350;
+
         for (let i = 1; i < racers.length; i++) {
           const ghost = ghostsDataRef.current[i - 1];
-          if (ghost) {
-            // Support live progress from multiplayer socket events
+          const racer = racers[i];
+          if (!ghost) continue;
+
+          const userId = ghost.id;
+
+          // --- Determine ghost progress via interpolation or legacy fallback ---
+          const samples = samplesRef?.current?.get(userId);
+          let ghostProgress: number;
+
+          if (samples && samples.length > 0) {
+            // Convert client wall-clock to adjusted server time, apply render lag.
+            const serverNow = toServerTimeRef.current
+              ? toServerTimeRef.current(now)
+              : now; // identity until P2-12 wires ClockSync
+            const renderTime = serverNow - RENDER_LAG_MS;
+            const charIndex = computeInterpolatedCharIndex(samples, renderTime);
+            ghostProgress = totalCharsRef.current > 0
+              ? charIndex / totalCharsRef.current
+              : 0;
+
+            // § 2.2.1 freeze heuristic: if renderTime is more than
+            // FREEZE_HEURISTIC_MS past the newest sample's serverTime, the
+            // buffer has run dry — treat as a transient freeze.
+            // This is self-contained: no external wall-clock stamp needed.
+            const lastSampleServerTime = samples[samples.length - 1].serverTime;
+            racer.isFrozen = renderTime - lastSampleServerTime > FREEZE_HEURISTIC_MS;
+          } else {
+            // Legacy path: read raw _liveProgress from the ghost payload
+            // (used for solo ghost replay and until P2-12 fills the buffer).
             const liveProgress = (ghost as GhostRacer & { _liveProgress?: number })._liveProgress;
-            const ghostProgress = liveProgress !== undefined
+            ghostProgress = liveProgress !== undefined
               ? liveProgress
               : interpolateGhostProgress(
                   ghost.clientGhostData,
                   elapsed,
                   totalCharsRef.current
                 );
-            updateRacerPosition(racers[i], ghostProgress, deltaMs);
+            racer.isFrozen = false;
           }
+
+          // § 2.2.1: disconnected flag — read from ghostConnectedStates prop.
+          // TODO(P2-12): ghostConnectedStates is populated from
+          // useMultiplayerRace's players array.
+          const isConnected = ghostConnectedStatesRef.current?.get(userId) ?? true;
+          racer.isDisconnected = !isConnected;
+
+          updateRacerPosition(racer, ghostProgress, deltaMs);
         }
       }
 
