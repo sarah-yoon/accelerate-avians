@@ -109,11 +109,15 @@ export function registerRaceHandlers(
     // Set up progress validator
     progressValidators.set(roomCode, new ProgressValidator(passage.charCount));
 
-    // Set up 10Hz progress broadcast
+    // Set up 10Hz progress broadcast — include charIndex + serverTime so
+    // the client interpolation path (P2-12) can build its sample buffer.
     room.progressBroadcastInterval = setInterval(() => {
       const snapshot = raceController.getProgressSnapshot(roomCode);
       if (snapshot.length > 0) {
-        io.to(roomCode).emit("player-progress", { players: snapshot });
+        const serverTime = performance.now();
+        io.to(roomCode).emit("player-progress", {
+          players: snapshot.map((p) => ({ ...p, serverTime })),
+        });
       }
     }, 100);
 

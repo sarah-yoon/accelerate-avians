@@ -64,8 +64,10 @@ export interface ServerToClientEvents {
     countdownMs: number;
   }) => void;
   "player-progress": (payload: {
-    players: Array<{ userId: string; progress: number }>;
+    players: Array<{ userId: string; progress: number; charIndex: number; serverTime: number }>;
   }) => void;
+  /** Echo of the client's time-sync ping with the server's current time. */
+  "time-sync-pong": (payload: { clientSendTime: number; serverTime: number }) => void;
   "race-results": (payload: { rankings: RaceRanking[] }) => void;
   "race-timeout": (payload: { rankings: RaceRanking[] }) => void;
   "room-error": (payload: { message: string }) => void;
@@ -117,6 +119,8 @@ export interface ClientToServerEvents {
   "change-difficulty": (payload: { roomCode: string; difficulty: "short" | "medium" | "long" }) => void;
   /** Client emits this on reconnect with a stored resumeToken to resume a racing session. */
   "reconnect": (payload: { token: string }) => void;
+  /** Client-side clock-sync ping — server echoes back with serverTime. */
+  "time-sync-ping": (payload: { clientSendTime: number }) => void;
 }
 
 export interface SocketData {

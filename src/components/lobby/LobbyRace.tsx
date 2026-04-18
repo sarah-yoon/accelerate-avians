@@ -6,6 +6,7 @@ import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { useTyping } from "@/hooks/useTyping";
 import type { MultiplayerPlayer, GhostRacer } from "@/types";
+import type { Sample } from "@/hooks/useInterpolatedProgress";
 
 interface LobbyRaceProps {
   passage: {
@@ -23,6 +24,12 @@ interface LobbyRaceProps {
   reconnectCharIndex: number | null;
   onProgress: (charIndex: number) => void;
   onFinished: (clientGhostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
+  /** Per-opponent sample buffer from useMultiplayerRace (P2-12). */
+  samplesRef?: React.RefObject<Map<string, Sample[]>>;
+  /** Whether ClockSync has >= 5 handshake samples (P2-12). */
+  clockSyncIsReady?: () => boolean;
+  /** Converts client performance.now() to server time (P2-12). */
+  toServerTime?: (clientMs: number) => number;
 }
 
 export function LobbyRace({
@@ -36,6 +43,9 @@ export function LobbyRace({
   reconnectCharIndex,
   onProgress,
   onFinished,
+  samplesRef,
+  clockSyncIsReady,
+  toServerTime,
 }: LobbyRaceProps) {
   const hasFinishedRef = useRef(false);
   const [playerFinished, setPlayerFinished] = useState(false);
@@ -132,8 +142,6 @@ export function LobbyRace({
   });
 
   // Build isConnected map for the canvas so it can show the disconnect bubble.
-  // TODO(P2-12): samplesRef, clockSyncIsReady, and toServerTime will also be
-  // threaded through here once useMultiplayerRace populates them.
   const ghostConnectedStates = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const p of otherPlayers) {
@@ -159,7 +167,6 @@ export function LobbyRace({
     <div className="w-full max-w-[900px]">
       {/* Canvas + overlay container */}
       <div className="mb-4 relative">
-        {/* samplesRef, clockSyncIsReady, toServerTime are wired in P2-12 */}
         <RaceCanvas
           phase={playerFinished ? "finished" : racePhase === "countdown" ? "countdown" : "racing"}
           countdownValue={countdownValue}
@@ -172,6 +179,9 @@ export function LobbyRace({
           wpm={wpm}
           backgroundSeed={backgroundSeed}
           ghostConnectedStates={ghostConnectedStates}
+          samplesRef={samplesRef}
+          clockSyncIsReady={clockSyncIsReady}
+          toServerTime={toServerTime}
         />
       </div>
 

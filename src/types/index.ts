@@ -104,3 +104,24 @@ export interface MultiplayerRanking {
   placement: number;
   status: "finished" | "dnf";
 }
+
+// --- Socket event payload types (client-side mirror of server/src/types.ts) ---
+
+/** A single entry in the player-progress broadcast (now includes charIndex + serverTime). */
+export interface PlayerProgressEntry {
+  userId: string;
+  progress: number;
+  charIndex: number;
+  serverTime: number;
+}
+
+/** resume-state snapshot sent to a reconnecting client. */
+export interface ResumeStatePayload {
+  token: string;
+  charIndex: number;
+  raceElapsedMs: number;
+  comboCount: number;
+  comboPaused: boolean;
+  comboPausedAtCharIndex: number;
+  players: Array<{ userId: string; charIndex: number; isConnected: boolean }>;
+}

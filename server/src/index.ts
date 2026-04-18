@@ -102,6 +102,20 @@ io.on("connection", (socket) => {
   const slowConsumerSampler = new SlowConsumerSampler(socket);
   const slowConsumerInterval = setInterval(() => slowConsumerSampler.sample(), 2000);
 
+  // Clock-sync handshake: client sends 5 pings ~200 ms apart in the first
+  // second after connect; server echoes each one back with performance.now().
+  // We track a per-socket ping count and stop responding after 10 pings to
+  // prevent a malicious client from flooding the server.
+  let timeSyncPingCount = 0;
+  socket.on("time-sync-ping", ({ clientSendTime }) => {
+    timeSyncPingCount++;
+    if (timeSyncPingCount > 10) return; // soft rate-limit
+    socket.emit("time-sync-pong", {
+      clientSendTime,
+      serverTime: performance.now(),
+    });
+  });
+
   // CRITICAL 1: Wire the token-based reconnect protocol (Spec § 2.3 step 6).
   socket.on("reconnect", async ({ token }) => {
     await handleNewReconnect(
