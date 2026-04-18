@@ -6,6 +6,7 @@ import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { useTyping } from "@/hooks/useTyping";
 import type { MultiplayerPlayer, GhostRacer } from "@/types";
+import type { Sample } from "@/hooks/useInterpolatedProgress";
 
 interface LobbyRaceProps {
   passage: {
@@ -23,6 +24,12 @@ interface LobbyRaceProps {
   reconnectCharIndex: number | null;
   onProgress: (charIndex: number) => void;
   onFinished: (clientGhostData: Array<{ charIndex: number; ms: number }>, correctKeystrokes: number, totalKeystrokes: number) => void;
+  /** Per-opponent sample buffer from useMultiplayerRace (P2-12). */
+  samplesRef?: React.RefObject<Map<string, Sample[]>>;
+  /** Whether ClockSync has >= 5 handshake samples (P2-12). */
+  clockSyncIsReady?: () => boolean;
+  /** Converts client performance.now() to server time (P2-12). */
+  toServerTime?: (clientMs: number) => number;
 }
 
 export function LobbyRace({
@@ -36,6 +43,9 @@ export function LobbyRace({
   reconnectCharIndex,
   onProgress,
   onFinished,
+  samplesRef,
+  clockSyncIsReady,
+  toServerTime,
 }: LobbyRaceProps) {
   const hasFinishedRef = useRef(false);
   const [playerFinished, setPlayerFinished] = useState(false);
@@ -53,7 +63,7 @@ export function LobbyRace({
     handleKeyDown,
     handleCompositionStart,
     handleCompositionEnd,
-  } = useTyping(passage.text, racePhase === "racing" ? raceStartedAt : null, racePhase === "racing");
+  } = useTyping(passage.text, racePhase === "racing" ? raceStartedAt : null, racePhase === "racing", reconnectCharIndex ?? undefined);
 
   // Send progress updates to server
   useEffect(() => {
@@ -74,7 +84,7 @@ export function LobbyRace({
       setPlayerFinished(true);
       onFinished(clientGhostData, correctKeystrokes, totalKeystrokes);
     }
-  }, [cursorPos, passage.charCount, racePhase, clientGhostData, correctKeystrokes, totalKeystrokes, onFinished]);
+  }, [cursorPos, passage.charCount, racePhase, clientGhostData, correctKeystrokes, totalKeystrokes, onFinished, wpm, accuracy]);
 
   // Convert multiplayer players to GhostRacer format for the Canvas
   const currentPlayer = players.find((p) => p.userId === currentUserId);
@@ -111,10 +121,11 @@ export function LobbyRace({
     return () => clearInterval(interval);
   }, [racePhase]);
 
-  // Memoize other players list so it only changes when players join/leave
+  // Memoize other players list so it recomputes whenever any player's fields
+  // (including isConnected) change, ensuring the disconnect bubble fires.
   const otherPlayers = useMemo(
     () => players.filter((p) => p.userId !== currentUserId),
-    [players.length, currentUserId]
+    [players, currentUserId]
   );
 
   // Build ghost racers — memoize the base array, update progress via ref
@@ -130,6 +141,15 @@ export function LobbyRace({
       _liveProgress: progress,
     } as GhostRacer & { _liveProgress: number };
   });
+
+  // Build isConnected map for the canvas so it can show the disconnect bubble.
+  const ghostConnectedStates = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const p of otherPlayers) {
+      map.set(p.userId, p.isConnected);
+    }
+    return map;
+  }, [otherPlayers]);
 
   // Determine canvas phase — show "finished" when player completes to trigger confetti
   const playerProgress = passage.charCount > 0 ? cursorPos / passage.charCount : 0;
@@ -159,6 +179,10 @@ export function LobbyRace({
           raceStartTime={raceStartedAt}
           wpm={wpm}
           backgroundSeed={backgroundSeed}
+          ghostConnectedStates={ghostConnectedStates}
+          samplesRef={samplesRef}
+          clockSyncIsReady={clockSyncIsReady}
+          toServerTime={toServerTime}
         />
       </div>
 

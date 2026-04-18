@@ -152,14 +152,15 @@ export class RaceController {
 
   getProgressSnapshot(
     roomCode: string
-  ): Array<{ userId: string; progress: number }> {
+  ): Array<{ userId: string; progress: number; charIndex: number }> {
     const state = this.raceStates.get(roomCode);
     if (!state) return [];
 
-    const snapshot: Array<{ userId: string; progress: number }> = [];
+    const snapshot: Array<{ userId: string; progress: number; charIndex: number }> = [];
     for (const [userId, charIndex] of state.playerCharIndices) {
       snapshot.push({
         userId,
+        charIndex,
         progress: state.passageCharCount > 0 ? charIndex / state.passageCharCount : 0,
       });
     }

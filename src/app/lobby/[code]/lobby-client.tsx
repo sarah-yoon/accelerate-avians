@@ -135,6 +135,9 @@ export function LobbyClient({ roomCode }: LobbyClientProps) {
             reconnectCharIndex={race.reconnectCharIndex}
             onProgress={race.sendProgress}
             onFinished={race.sendFinished}
+            samplesRef={race.samplesRef}
+            clockSyncIsReady={race.clockSyncIsReady}
+            toServerTime={race.toServerTime}
           />
         )}
 

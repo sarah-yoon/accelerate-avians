@@ -7,12 +7,23 @@ import { RoomManager } from "./rooms/room-manager.js";
 import { RaceController } from "./race/race-controller.js";
 import { registerRoomHandlers } from "./handlers/room-handlers.js";
 import { registerRaceHandlers, finishRace } from "./handlers/race-handlers.js";
-import { handleDisconnect } from "./handlers/connection-handler.js";
+import {
+  handleDisconnect,
+  handleNewReconnect,
+  registerSocket,
+  unregisterSocket,
+  defaultSessionStore,
+  SlowConsumerSampler,
+} from "./handlers/connection-handler.js";
+import { readSecretFromEnv } from "./lib/resume-token.js";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketData,
 } from "./types.js";
+
+// Validate required secrets before binding port.
+const RESUME_TOKEN_SECRET = readSecretFromEnv();
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
@@ -48,11 +59,11 @@ const io = new Server<
     origin: CORS_ORIGIN,
     methods: ["GET", "POST"],
   },
-  pingInterval: 25000,
-  pingTimeout: 60000,
-  connectionStateRecovery: {
-    maxDisconnectionDuration: 30_000,
-  },
+  transports: ['websocket'],
+  pingInterval: 5_000,
+  pingTimeout: 8_000,
+  perMessageDeflate: false,
+  maxHttpBufferSize: 16_384,
 });
 
 // Shared state
@@ -75,12 +86,59 @@ io.use(createClerkAuthMiddleware(CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY));
 io.on("connection", (socket) => {
   console.log(`Connected: ${socket.id} (user: ${socket.data.userId})`);
 
+  // CRITICAL 3: Register socket so handleNewReconnect can fence old sockets.
+  registerSocket(socket);
+
   // Register all event handlers
   registerRoomHandlers(io, socket, roomManager);
-  registerRaceHandlers(io, socket, roomManager, raceController);
+  registerRaceHandlers(io, socket, roomManager, raceController, RESUME_TOKEN_SECRET);
+
+  // Spec § 2.4: Sample each socket's outgoing buffer every 2 s; disconnect
+  // slow consumers that exceed 64 KB for two consecutive samples.
+  const slowConsumerSampler = new SlowConsumerSampler(socket);
+  const slowConsumerInterval = setInterval(() => slowConsumerSampler.sample(), 2000);
+
+  // Clock-sync handshake: client sends 5 pings ~200 ms apart in the first
+  // second after connect; server echoes each one back with performance.now().
+  // We track a per-socket ping count and stop responding after 10 pings to
+  // prevent a malicious client from flooding the server.
+  let timeSyncPingCount = 0;
+  socket.on("time-sync-ping", ({ clientSendTime }) => {
+    timeSyncPingCount++;
+    if (timeSyncPingCount > 10) return; // soft rate-limit
+    socket.emit("time-sync-pong", {
+      clientSendTime,
+      serverTime: performance.now(),
+    });
+  });
+
+  // CRITICAL 1: Wire the token-based reconnect protocol (Spec § 2.3 step 6).
+  socket.on("reconnect", async ({ token }) => {
+    await handleNewReconnect(
+      io,
+      socket,
+      roomManager,
+      raceController,
+      RESUME_TOKEN_SECRET,
+      token,
+      /* socketRegistry */ undefined,  // uses defaultSocketRegistry
+      defaultSessionStore,
+    );
+    // Reset ping counter so the post-reconnect handshake (5 more pings) can
+    // complete without hitting the soft rate-limit. handleNewReconnect emits
+    // "reconnect-error" on any failure path and returns early; on success it
+    // reaches this point having emitted "resume-state". Resetting here (after
+    // await) is safe: on failure the client enters an error state and won't
+    // send more pings, so the reset is a no-op in practice.
+    timeSyncPingCount = 0;
+  });
 
   socket.on("disconnect", (reason) => {
     console.log(`Disconnected: ${socket.id} (reason: ${reason})`);
+    // Clean up the slow-consumer sampling interval.
+    clearInterval(slowConsumerInterval);
+    // CRITICAL 3: Unregister socket on disconnect to keep registry clean.
+    unregisterSocket(socket.id);
     handleDisconnect(io, socket, roomManager, raceController);
   });
 });

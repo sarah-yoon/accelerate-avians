@@ -22,6 +22,19 @@ export interface Racer {
   renderedX: number; // lerped screen position
   isGhost: boolean;
   isPlayer: boolean;
+  /**
+   * True when the opponent's socket has disconnected (server broadcast
+   * `player_disconnected`).  Shows the "..." bubble above the bird.
+   * § 2.2.1 of the netcode spec.
+   */
+  isDisconnected: boolean;
+  /**
+   * True when interpolation has frozen due to sample underflow (no new
+   * samples for > 150 ms) but `isDisconnected` is still false.  Drops
+   * flap rate to idle 4 fps and pauses feather emission without the bubble.
+   * § 2.2.1 of the netcode spec.
+   */
+  isFrozen: boolean;
 }
 
 export interface RaceRendererState {
@@ -219,6 +232,19 @@ export function drawRace(
     const racerWorldX = racer.progress * BASE_WIDTH * TRACK_SCALE;
     const screenX = racerWorldX - cameraX;
 
+    // § 2.2.1 — freeze pose: idle flap rate for disconnected / frozen ghosts.
+    // TODO(P2-12): feather emission pause will also be gated here once Phase 5
+    // adds feather trails; add `if (!racer.isFrozen && !racer.isDisconnected)`
+    // guard around the emitter call.
+    if (!racer.isPlayer && (racer.isDisconnected || racer.isFrozen)) {
+      racer.sprite.setFps(4); // idle rate per spec § 2.2.1
+    } else if (!racer.isPlayer) {
+      // TODO(Phase 5 § 3.1): derive flapFps from opponent currentWPM:
+      //   flapFps = clamp(currentWPM / 10, 4, 12)
+      // For now, fixed 8 fps keeps birds visibly animated during Phase 2.
+      racer.sprite.setFps(8);
+    }
+
     // Skip drawing if off-screen (but still update sprite)
     racer.sprite.update(deltaMs);
 
@@ -237,6 +263,21 @@ export function drawRace(
       srcX, 0, frameSrc, frameSrc,
       destX, destY, SPRITE_SIZE, SPRITE_SIZE
     );
+
+    // § 2.2.1 — "..." bubble: only for disconnected opponents, NOT transient freeze.
+    if (!racer.isPlayer && racer.isDisconnected) {
+      ctx.font = '5px "Press Start 2P", monospace';
+      const bubbleText = "...";
+      const bubbleW = ctx.measureText(bubbleText).width + 4;
+      const bubbleH = 10;
+      const bubbleX = destX + (SPRITE_SIZE - bubbleW) / 2;
+      const bubbleY = Math.round(birdY - 14);
+      ctx.fillStyle = "rgba(10, 10, 20, 0.75)";
+      ctx.fillRect(bubbleX, bubbleY, bubbleW, bubbleH);
+      ctx.fillStyle = "#C0C0D0";
+      ctx.textAlign = "left";
+      ctx.fillText(bubbleText, bubbleX + 2, bubbleY + bubbleH - 2);
+    }
 
     // Draw username label (above bird) with background for readability
     ctx.font = '5px "Press Start 2P", monospace';

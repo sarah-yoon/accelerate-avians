@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { TypingEngine } from "@/components/typing/typing-engine";
 import type { GhostDataPoint } from "@/types";
 
@@ -20,11 +20,22 @@ interface UseTypingReturn {
 export function useTyping(
   passage: string,
   raceStartTime: number | null,
-  enabled: boolean
+  enabled: boolean,
+  reconnectCharIndex?: number
 ): UseTypingReturn {
   const engineRef = useRef<TypingEngine>(new TypingEngine(passage));
   const [cursorPos, setCursorPos] = useState(0);
   const [hasError, setHasError] = useState(false);
+
+  // When resuming after reconnect, advance the internal cursor to the server's
+  // authoritative charIndex so the next keystroke passes the monotonic validator.
+  useEffect(() => {
+    if (reconnectCharIndex != null && reconnectCharIndex > 0) {
+      engineRef.current.resumeFrom(reconnectCharIndex);
+      setCursorPos(reconnectCharIndex);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reconnectCharIndex]);
   const [isComplete, setIsComplete] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(0);

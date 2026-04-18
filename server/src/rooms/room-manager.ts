@@ -1,5 +1,6 @@
 import { generateRoomCode } from "./room-code.js";
 import type { Room, RoomPlayer, RoomStatus } from "../types.js";
+import { prisma } from "../lib/prisma.js";
 
 const MAX_PLAYERS = 6;
 const ROOM_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
@@ -188,6 +189,22 @@ export class RoomManager {
     if (room) {
       room.lastActivityAt = Date.now();
     }
+  }
+
+  async incrementEpoch(matchId: string, userId: string): Promise<number> {
+    // Single-statement atomic increment — no read-modify-write race window.
+    const rows = await prisma.$queryRaw<{ new_epoch: string }[]>`
+      UPDATE "matches"
+      SET epochs = jsonb_set(
+        COALESCE(epochs, '{}'::jsonb),
+        ARRAY[${userId}],
+        to_jsonb(COALESCE((epochs->>${userId})::int, 0) + 1)
+      )
+      WHERE id = ${matchId}
+      RETURNING epochs->>${userId} AS new_epoch
+    `;
+    if (rows.length === 0) throw new Error(`Match ${matchId} not found`);
+    return Number(rows[0].new_epoch);
   }
 
   cleanupExpiredRooms(): void {

@@ -9,6 +9,7 @@ import type { RoomManager } from "../rooms/room-manager.js";
 import type { RaceController } from "../race/race-controller.js";
 import { ProgressValidator } from "../race/progress-validator.js";
 import { prisma } from "../lib/prisma.js";
+import { issueResumeToken } from "./connection-handler.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -20,7 +21,8 @@ export function registerRaceHandlers(
   io: AppServer,
   socket: AppSocket,
   roomManager: RoomManager,
-  raceController: RaceController
+  raceController: RaceController,
+  secret: string
 ): void {
   socket.on("start-race", async ({ roomCode }) => {
     const room = roomManager.getRoom(roomCode);
@@ -107,11 +109,15 @@ export function registerRaceHandlers(
     // Set up progress validator
     progressValidators.set(roomCode, new ProgressValidator(passage.charCount));
 
-    // Set up 10Hz progress broadcast
+    // Set up 10Hz progress broadcast — include charIndex + serverTime so
+    // the client interpolation path (P2-12) can build its sample buffer.
     room.progressBroadcastInterval = setInterval(() => {
       const snapshot = raceController.getProgressSnapshot(roomCode);
       if (snapshot.length > 0) {
-        io.to(roomCode).emit("player-progress", { players: snapshot });
+        const serverTime = performance.now();
+        io.to(roomCode).emit("player-progress", {
+          players: snapshot.map((p) => ({ ...p, serverTime })),
+        });
       }
     }, 100);
 
@@ -125,6 +131,32 @@ export function registerRaceHandlers(
       },
       countdownMs: 3000,
     });
+
+    // CRITICAL 2 (Spec § 2.3 step 1): Mint + emit resume-token to every
+    // connected player so they can survive a disconnect during the race.
+    // We do this here (not at join-room) because matchId is only known
+    // once the Match record has been created by start-race.
+    const sockets = await io.in(roomCode).fetchSockets();
+    const socketById = new Map(sockets.map((s) => [s.id, s]));
+
+    await Promise.all(
+      connectedPlayers.map(async (player) => {
+        const playerSocket = socketById.get(player.socketId);
+        if (!playerSocket) return;
+        try {
+          await issueResumeToken(
+            playerSocket as any,
+            roomManager,
+            secret,
+            player.userId,
+            roomCode,
+            match.id,
+          );
+        } catch (err) {
+          console.error(`[start-race] Failed to issue resume token for ${player.userId}:`, err);
+        }
+      })
+    );
   });
 
   socket.on("typing-progress", ({ charIndex }) => {

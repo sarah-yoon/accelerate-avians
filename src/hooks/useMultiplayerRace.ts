@@ -7,13 +7,26 @@ import type {
   MultiplayerPlayer,
   MultiplayerRanking,
   Difficulty,
+  PlayerProgressEntry,
+  ResumeStatePayload,
 } from "@/types";
+import { ClockSync } from "@/lib/clock-sync";
+import type { Sample } from "@/hooks/useInterpolatedProgress";
 
 type LobbyPhase = "waiting" | "countdown" | "racing" | "results";
 
 interface PlayerProgressMap {
   [userId: string]: number; // 0 to 1
 }
+
+/** Maximum samples to keep per opponent (3 s at 10 Hz). */
+const MAX_SAMPLES = 30;
+
+/** Number of time-sync pings to send on connect. */
+const HANDSHAKE_PING_COUNT = 5;
+
+/** Interval between pings (ms). */
+const HANDSHAKE_PING_INTERVAL_MS = 200;
 
 interface UseMultiplayerRaceReturn {
   roomCode: string | null;
@@ -30,6 +43,12 @@ interface UseMultiplayerRaceReturn {
   reconnectCharIndex: number | null;
   myUserId: string | null;
   connectionError: string | null;
+  /** Per-opponent sample buffer for interpolated rendering (P2-12). */
+  samplesRef: React.RefObject<Map<string, Sample[]>>;
+  /** Returns true once ClockSync has >= 5 handshake samples. */
+  clockSyncIsReady: () => boolean;
+  /** Converts client performance.now() to adjusted server time. */
+  toServerTime: (clientMs: number) => number;
   createRoom: (difficulty: Difficulty) => void;
   joinRoom: (roomCode: string) => void;
   startRace: () => void;
@@ -59,8 +78,75 @@ export function useMultiplayerRace(
 
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // --- Clock sync & sample buffering refs (stable across renders) ---
+
+  /** One ClockSync instance per hook mount (per race session). */
+  const clockSyncRef = useRef<ClockSync>(new ClockSync());
+
+  /** Per-opponent sample buffer, keyed by userId. */
+  const samplesRef = useRef<Map<string, Sample[]>>(new Map());
+
+  /** Stashed resume token issued by the server; sent back on reconnect. */
+  const resumeTokenRef = useRef<string | null>(null);
+
+  /** Whether we are currently inside the racing phase (used by disconnect handler). */
+  const isRacingRef = useRef(false);
+
+  /** Pending reconnect handler registered via sock.once("connect", …); stored so
+   *  the useEffect cleanup can remove it if the component unmounts before reconnect. */
+  const pendingReconnectHandlerRef = useRef<(() => void) | null>(null);
+
+  // Keep isRacingRef in sync with lobbyPhase without a closure capture problem.
+  useEffect(() => {
+    isRacingRef.current = lobbyPhase === "racing";
+  }, [lobbyPhase]);
+
+  // Stable callbacks so the event effect doesn't re-run when these change.
+  const clockSyncIsReady = useCallback(() => clockSyncRef.current.isReady(), []);
+  const toServerTime = useCallback(
+    (clientMs: number) => clockSyncRef.current.toServerTime(clientMs),
+    []
+  );
+
+  // --- Clock-sync handshake ---
+
+  /**
+   * Send 5 time-sync pings ~200 ms apart right after the socket connects.
+   * Each pong is recorded by ClockSync so it can compute the clock offset.
+   */
+  const startHandshake = useCallback(
+    (sock: Socket) => {
+      let sent = 0;
+      const interval = setInterval(() => {
+        if (sent >= HANDSHAKE_PING_COUNT) {
+          clearInterval(interval);
+          return;
+        }
+        const clientSendTime = performance.now();
+        sock.emit("time-sync-ping", { clientSendTime });
+        sent++;
+      }, HANDSHAKE_PING_INTERVAL_MS);
+    },
+    []
+  );
+
+  // --- Main socket event effect ---
+
   useEffect(() => {
     if (!socket) return;
+    // Capture the narrowed non-null reference so inner closures can use it safely.
+    const sock = socket;
+
+    // Start the handshake immediately on (re)connect.
+    startHandshake(sock);
+
+    function onTimeSyncPong(payload: { clientSendTime: number; serverTime: number }) {
+      clockSyncRef.current.recordHandshake({
+        clientSendTime: payload.clientSendTime,
+        clientReceiveTime: performance.now(),
+        serverTime: payload.serverTime,
+      });
+    }
 
     function onRoomCreated({ roomCode }: { roomCode: string }) {
       setRoomCode(roomCode);
@@ -110,6 +196,17 @@ export function useMultiplayerRace(
 
     function onPlayerLeft({ userId }: { userId: string }) {
       setPlayers((prev) => prev.filter((p) => p.userId !== userId));
+      // Clean up sample buffer for departed player.
+      samplesRef.current.delete(userId);
+    }
+
+    /** CRITICAL (P2-12): flip isConnected = false so the "..." bubble fires. */
+    function onPlayerDisconnected({ userId }: { userId: string }) {
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.userId === userId ? { ...p, isConnected: false } : p
+        )
+      );
     }
 
     function onPlayerReconnected({ userId }: { userId: string }) {
@@ -118,6 +215,15 @@ export function useMultiplayerRace(
           p.userId === userId ? { ...p, isConnected: true } : p
         )
       );
+      // Clear stale samples from before the disconnect; the interpolator will
+      // re-seed from the next player-progress broadcast (mirrors onPlayerDropped).
+      samplesRef.current?.delete(userId);
+    }
+
+    /** Player dropped (DNF) after the 20 s reconnect window expired. */
+    function onPlayerDropped({ userId }: { userId: string }) {
+      setPlayers((prev) => prev.filter((p) => p.userId !== userId));
+      samplesRef.current.delete(userId);
     }
 
     function onRaceStarted(payload: {
@@ -127,6 +233,8 @@ export function useMultiplayerRace(
       setPassage(payload.passage);
       setLobbyPhase("countdown");
       setCountdownValue(3);
+      // Clear sample buffers for a fresh race.
+      samplesRef.current.clear();
 
       let count = 3;
       countdownTimerRef.current = setInterval(() => {
@@ -147,11 +255,22 @@ export function useMultiplayerRace(
     }
 
     function onPlayerProgress(payload: {
-      players: Array<{ userId: string; progress: number }>;
+      players: Array<PlayerProgressEntry>;
     }) {
       const newProgresses: PlayerProgressMap = {};
       for (const p of payload.players) {
         newProgresses[p.userId] = p.progress;
+
+        // Push into sample buffer for interpolation.
+        if (!samplesRef.current.has(p.userId)) {
+          samplesRef.current.set(p.userId, []);
+        }
+        const buf = samplesRef.current.get(p.userId)!;
+        buf.push({ serverTime: p.serverTime, charIndex: p.charIndex });
+        // Cap to MAX_SAMPLES (trim oldest entries).
+        if (buf.length > MAX_SAMPLES) {
+          buf.splice(0, buf.length - MAX_SAMPLES);
+        }
       }
       setPlayerProgresses(newProgresses);
     }
@@ -170,34 +289,109 @@ export function useMultiplayerRace(
       setConnectionError(payload.message);
     }
 
-    socket.on("room-created", onRoomCreated);
-    socket.on("room-state", onRoomState);
-    socket.on("player-joined", onPlayerJoined);
-    socket.on("player-left", onPlayerLeft);
-    socket.on("player-reconnected", onPlayerReconnected);
-    socket.on("race-started", onRaceStarted);
-    socket.on("player-progress", onPlayerProgress);
-    socket.on("race-results", onRaceResults);
-    socket.on("race-timeout", onRaceTimeout);
-    socket.on("room-error", onRoomError);
+    /** Server-issued resume token — stash for use on reconnect. */
+    function onResumeToken(payload: { token: string }) {
+      resumeTokenRef.current = payload.token;
+    }
+
+    /** Full race snapshot on reconnect — restore local state. */
+    function onResumeState(payload: ResumeStatePayload) {
+      // Stash the fresh token.
+      resumeTokenRef.current = payload.token;
+      // Restore our own charIndex.
+      setReconnectCharIndex(payload.charIndex);
+      // Restore isConnected flags for all players.
+      setPlayers((prev) =>
+        prev.map((p) => {
+          const entry = payload.players.find((pp) => pp.userId === p.userId);
+          return entry ? { ...p, isConnected: entry.isConnected } : p;
+        })
+      );
+      // Clear opponent sample buffers — ClockSync is not yet ready at this point
+      // (the post-reconnect handshake pings haven't returned), so any synthetic
+      // serverTime would be wildly off. The interpolator will re-seed from the
+      // first real player-progress broadcast that arrives after reconnect.
+      for (const p of payload.players) {
+        samplesRef.current.delete(p.userId);
+      }
+      // Re-run the clock handshake so offset stays fresh after the reconnect.
+      startHandshake(sock);
+    }
+
+    /** Reconnect rejected by server — log for Phase 2, UI toast in Phase 5. */
+    function onReconnectError(payload: { reason: string }) {
+      console.warn("[useMultiplayerRace] reconnect-error:", payload.reason);
+      setConnectionError(`Reconnect failed: ${payload.reason}`);
+    }
+
+    /** Socket-level disconnect — attempt token-based reconnect if racing. */
+    function onSocketDisconnect(reason: string) {
+      console.log("[useMultiplayerRace] socket disconnect:", reason);
+      if (isRacingRef.current && resumeTokenRef.current) {
+        // Socket.IO will auto-reconnect the transport; once it does, emit reconnect.
+        const handler = () => {
+          if (resumeTokenRef.current) {
+            console.log("[useMultiplayerRace] emitting reconnect with token");
+            sock.emit("reconnect", { token: resumeTokenRef.current });
+            // Also re-run handshake on reconnect.
+            startHandshake(sock);
+          }
+          pendingReconnectHandlerRef.current = null;
+        };
+        sock.once("connect", handler);
+        pendingReconnectHandlerRef.current = handler;
+      }
+    }
+
+    sock.on("time-sync-pong", onTimeSyncPong);
+    sock.on("room-created", onRoomCreated);
+    sock.on("room-state", onRoomState);
+    sock.on("player-joined", onPlayerJoined);
+    sock.on("player-left", onPlayerLeft);
+    sock.on("player-disconnected", onPlayerDisconnected);
+    sock.on("player-reconnected", onPlayerReconnected);
+    sock.on("player-dropped", onPlayerDropped);
+    sock.on("race-started", onRaceStarted);
+    sock.on("player-progress", onPlayerProgress);
+    sock.on("race-results", onRaceResults);
+    sock.on("race-timeout", onRaceTimeout);
+    sock.on("room-error", onRoomError);
+    sock.on("resume-token", onResumeToken);
+    sock.on("resume-state", onResumeState);
+    sock.on("reconnect-error", onReconnectError);
+    sock.on("disconnect", onSocketDisconnect);
 
     return () => {
-      socket.off("room-created", onRoomCreated);
-      socket.off("room-state", onRoomState);
-      socket.off("player-joined", onPlayerJoined);
-      socket.off("player-left", onPlayerLeft);
-      socket.off("player-reconnected", onPlayerReconnected);
-      socket.off("race-started", onRaceStarted);
-      socket.off("player-progress", onPlayerProgress);
-      socket.off("race-results", onRaceResults);
-      socket.off("race-timeout", onRaceTimeout);
-      socket.off("room-error", onRoomError);
+      sock.off("time-sync-pong", onTimeSyncPong);
+      sock.off("room-created", onRoomCreated);
+      sock.off("room-state", onRoomState);
+      sock.off("player-joined", onPlayerJoined);
+      sock.off("player-left", onPlayerLeft);
+      sock.off("player-disconnected", onPlayerDisconnected);
+      sock.off("player-reconnected", onPlayerReconnected);
+      sock.off("player-dropped", onPlayerDropped);
+      sock.off("race-started", onRaceStarted);
+      sock.off("player-progress", onPlayerProgress);
+      sock.off("race-results", onRaceResults);
+      sock.off("race-timeout", onRaceTimeout);
+      sock.off("room-error", onRoomError);
+      sock.off("resume-token", onResumeToken);
+      sock.off("resume-state", onResumeState);
+      sock.off("reconnect-error", onReconnectError);
+      sock.off("disconnect", onSocketDisconnect);
+
+      // Remove any orphaned once("connect") reconnect handler to prevent it
+      // from firing on a dead (unmounted) component.
+      if (pendingReconnectHandlerRef.current) {
+        sock.off("connect", pendingReconnectHandlerRef.current);
+        pendingReconnectHandlerRef.current = null;
+      }
 
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
       }
     };
-  }, [socket]);
+  }, [socket, startHandshake]);
 
   const createRoom = useCallback(
     (diff: Difficulty) => {
@@ -247,6 +441,10 @@ export function useMultiplayerRace(
     setPlayerProgresses({});
     setRaceStartedAt(null);
     setReconnectCharIndex(null);
+    resumeTokenRef.current = null;
+    samplesRef.current.clear();
+    // Fresh ClockSync for the new session.
+    clockSyncRef.current = new ClockSync();
     socket.emit("play-again", { roomCode });
   }, [socket, roomCode]);
 
@@ -268,6 +466,8 @@ export function useMultiplayerRace(
     setPassage(null);
     setRankings(null);
     setConnectionError(null);
+    resumeTokenRef.current = null;
+    samplesRef.current.clear();
   }, [socket, roomCode]);
 
   return {
@@ -285,6 +485,9 @@ export function useMultiplayerRace(
     raceStartedAt,
     reconnectCharIndex,
     connectionError,
+    samplesRef,
+    clockSyncIsReady,
+    toServerTime,
     createRoom,
     joinRoom,
     startRace,

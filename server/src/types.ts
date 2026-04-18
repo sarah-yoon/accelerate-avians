@@ -57,13 +57,17 @@ export interface ServerToClientEvents {
   }) => void;
   "player-left": (payload: { userId: string }) => void;
   "player-reconnected": (payload: { userId: string }) => void;
+  "player-disconnected": (payload: { userId: string }) => void;
+  "player-dropped": (payload: { userId: string }) => void;
   "race-started": (payload: {
     passage: { id: string; text: string; charCount: number; wordCount: number };
     countdownMs: number;
   }) => void;
   "player-progress": (payload: {
-    players: Array<{ userId: string; progress: number }>;
+    players: Array<{ userId: string; progress: number; charIndex: number; serverTime: number }>;
   }) => void;
+  /** Echo of the client's time-sync ping with the server's current time. */
+  "time-sync-pong": (payload: { clientSendTime: number; serverTime: number }) => void;
   "race-results": (payload: { rankings: RaceRanking[] }) => void;
   "race-timeout": (payload: { rankings: RaceRanking[] }) => void;
   "room-error": (payload: { message: string }) => void;
@@ -84,6 +88,20 @@ export interface ServerToClientEvents {
     raceStartedAt?: number;
     yourCharIndex?: number;
   }) => void;
+  /** Issued to a newly connected socket after auth + join. Client stores this. */
+  "resume-token": (payload: { token: string }) => void;
+  /** Sent to a reconnecting socket — full race state snapshot. */
+  "resume-state": (payload: {
+    token: string;
+    charIndex: number;
+    raceElapsedMs: number;
+    comboCount: number;
+    comboPaused: boolean;
+    comboPausedAtCharIndex: number;
+    players: Array<{ userId: string; charIndex: number; isConnected: boolean }>;
+  }) => void;
+  /** Emitted to the reconnecting socket on any rejection during the reconnect handshake. */
+  "reconnect-error": (payload: { reason: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -99,6 +117,10 @@ export interface ClientToServerEvents {
   "leave-room": (payload: { roomCode: string }) => void;
   "play-again": (payload: { roomCode: string }) => void;
   "change-difficulty": (payload: { roomCode: string; difficulty: "short" | "medium" | "long" }) => void;
+  /** Client emits this on reconnect with a stored resumeToken to resume a racing session. */
+  "reconnect": (payload: { token: string }) => void;
+  /** Client-side clock-sync ping — server echoes back with serverTime. */
+  "time-sync-ping": (payload: { clientSendTime: number }) => void;
 }
 
 export interface SocketData {

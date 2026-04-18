@@ -1,5 +1,9 @@
 import { registerRaceHandlers, finishRace, progressValidators } from "./race-handlers.js";
 
+vi.mock("./connection-handler.js", () => ({
+  issueResumeToken: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("../lib/prisma.js", () => ({
   prisma: {
     passage: {
@@ -47,6 +51,7 @@ function createMockIo() {
   const emitFn = vi.fn();
   return {
     to: vi.fn(() => ({ emit: emitFn })),
+    in: vi.fn(() => ({ fetchSockets: vi.fn().mockResolvedValue([]) })),
     _emitFn: emitFn,
   };
 }
@@ -57,6 +62,7 @@ function createMockRoomManager() {
     touchRoom: vi.fn(),
     setRoomStatus: vi.fn(),
     removePlayer: vi.fn(),
+    incrementEpoch: vi.fn().mockResolvedValue(1),
   };
 }
 
@@ -108,7 +114,7 @@ describe("registerRaceHandlers", () => {
     io = createMockIo();
     roomManager = createMockRoomManager();
     raceController = createMockRaceController();
-    registerRaceHandlers(io as any, socket as any, roomManager as any, raceController as any);
+    registerRaceHandlers(io as any, socket as any, roomManager as any, raceController as any, "a".repeat(64));
   });
 
   afterEach(() => {

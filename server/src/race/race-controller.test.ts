@@ -211,8 +211,8 @@ describe("RaceController", () => {
 
       const snapshot = controller.getProgressSnapshot(room.code);
       expect(snapshot).toEqual([
-        { userId: "user1", progress: 0.5 },
-        { userId: "user2", progress: 0.25 },
+        { userId: "user1", progress: 0.5, charIndex: 50 },
+        { userId: "user2", progress: 0.25, charIndex: 25 },
       ]);
     });
   });
