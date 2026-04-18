@@ -10,7 +10,6 @@ import type { RaceController } from "../race/race-controller.js";
 import { ProgressValidator } from "../race/progress-validator.js";
 import { prisma } from "../lib/prisma.js";
 import { issueResumeToken } from "./connection-handler.js";
-import { readSecretFromEnv } from "../lib/resume-token.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -22,7 +21,8 @@ export function registerRaceHandlers(
   io: AppServer,
   socket: AppSocket,
   roomManager: RoomManager,
-  raceController: RaceController
+  raceController: RaceController,
+  secret: string
 ): void {
   socket.on("start-race", async ({ roomCode }) => {
     const room = roomManager.getRoom(roomCode);
@@ -136,14 +136,6 @@ export function registerRaceHandlers(
     // connected player so they can survive a disconnect during the race.
     // We do this here (not at join-room) because matchId is only known
     // once the Match record has been created by start-race.
-    let resumeSecret: string;
-    try {
-      resumeSecret = readSecretFromEnv();
-    } catch {
-      console.error("[start-race] RESUME_TOKEN_SECRET missing — cannot issue resume tokens");
-      return;
-    }
-
     const sockets = await io.in(roomCode).fetchSockets();
     const socketById = new Map(sockets.map((s) => [s.id, s]));
 
@@ -155,7 +147,7 @@ export function registerRaceHandlers(
           await issueResumeToken(
             playerSocket as any,
             roomManager,
-            resumeSecret,
+            secret,
             player.userId,
             roomCode,
             match.id,

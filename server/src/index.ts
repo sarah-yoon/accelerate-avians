@@ -24,7 +24,6 @@ import type {
 
 // Validate required secrets before binding port.
 const RESUME_TOKEN_SECRET = readSecretFromEnv();
-void RESUME_TOKEN_SECRET;
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
@@ -65,9 +64,6 @@ const io = new Server<
   pingTimeout: 8_000,
   perMessageDeflate: false,
   maxHttpBufferSize: 16_384,
-  connectionStateRecovery: {
-    maxDisconnectionDuration: 30_000,
-  },
 });
 
 // Shared state
@@ -95,7 +91,7 @@ io.on("connection", (socket) => {
 
   // Register all event handlers
   registerRoomHandlers(io, socket, roomManager);
-  registerRaceHandlers(io, socket, roomManager, raceController);
+  registerRaceHandlers(io, socket, roomManager, raceController, RESUME_TOKEN_SECRET);
 
   // Spec § 2.4: Sample each socket's outgoing buffer every 2 s; disconnect
   // slow consumers that exceed 64 KB for two consecutive samples.

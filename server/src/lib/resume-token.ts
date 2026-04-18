@@ -1,7 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+/** Reconnect window: 20s after disconnect the client must submit their token. */
 export const RESUME_WINDOW_MS = 20_000;
-const GRACE_MS = 30_000;
+/**
+ * Grace period added to RESUME_WINDOW_MS for clock skew / in-flight tokens.
+ * Total token lifetime: 50s (20s window + 30s grace).
+ * Note: spec prose historically said "45s" — the implementation has shipped at
+ * 50s (GRACE_MS = 30_000) and consumers depend on that value.
+ */
+export const GRACE_MS = 30_000;
 
 export interface ResumeTokenPayload {
   userId: string;

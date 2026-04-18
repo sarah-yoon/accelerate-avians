@@ -63,7 +63,7 @@ export function LobbyRace({
     handleKeyDown,
     handleCompositionStart,
     handleCompositionEnd,
-  } = useTyping(passage.text, racePhase === "racing" ? raceStartedAt : null, racePhase === "racing");
+  } = useTyping(passage.text, racePhase === "racing" ? raceStartedAt : null, racePhase === "racing", reconnectCharIndex ?? undefined);
 
   // Send progress updates to server
   useEffect(() => {
@@ -84,7 +84,7 @@ export function LobbyRace({
       setPlayerFinished(true);
       onFinished(clientGhostData, correctKeystrokes, totalKeystrokes);
     }
-  }, [cursorPos, passage.charCount, racePhase, clientGhostData, correctKeystrokes, totalKeystrokes, onFinished]);
+  }, [cursorPos, passage.charCount, racePhase, clientGhostData, correctKeystrokes, totalKeystrokes, onFinished, wpm, accuracy]);
 
   // Convert multiplayer players to GhostRacer format for the Canvas
   const currentPlayer = players.find((p) => p.userId === currentUserId);
@@ -121,10 +121,11 @@ export function LobbyRace({
     return () => clearInterval(interval);
   }, [racePhase]);
 
-  // Memoize other players list so it only changes when players join/leave
+  // Memoize other players list so it recomputes whenever any player's fields
+  // (including isConnected) change, ensuring the disconnect bubble fires.
   const otherPlayers = useMemo(
     () => players.filter((p) => p.userId !== currentUserId),
-    [players.length, currentUserId]
+    [players, currentUserId]
   );
 
   // Build ghost racers — memoize the base array, update progress via ref

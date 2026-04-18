@@ -8,7 +8,7 @@ import type {
 import type { RoomManager } from "../rooms/room-manager.js";
 import type { RaceController } from "../race/race-controller.js";
 import { finishRace } from "./race-handlers.js";
-import { mintResumeToken, verifyResumeToken } from "../lib/resume-token.js";
+import { mintResumeToken, verifyResumeToken, RESUME_WINDOW_MS, GRACE_MS } from "../lib/resume-token.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
@@ -245,6 +245,12 @@ export async function handleNewReconnect(
   //    client hammering with garbage tokens cannot bypass the 3-attempt limit.
   const attempts = (tokenAttempts.get(token) ?? 0) + 1;
   tokenAttempts.set(token, attempts);
+  // Auto-expire entry after the token itself can no longer be valid.
+  // Prevents unbounded map growth over long-running sessions.
+  if (attempts === 1) {
+    const timer = setTimeout(() => tokenAttempts.delete(token), RESUME_WINDOW_MS + GRACE_MS);
+    timer.unref?.();
+  }
   if (attempts > MAX_TOKEN_ATTEMPTS) {
     newSocket.emit("reconnect-error", { reason: "token-attempt-cap-exceeded" });
     return;
@@ -258,6 +264,13 @@ export async function handleNewReconnect(
   }
 
   const { userId, roomCode, sessionEpoch: tokenEpoch } = verifyResult.payload;
+
+  // ── Step 2b: Cross-check Clerk-authed identity ────────────────────────────
+  // Cross-check: Clerk-authed identity on this socket must match the token's userId.
+  if (newSocket.data.userId && newSocket.data.userId !== userId) {
+    newSocket.emit("reconnect-error", { reason: "identity-mismatch" });
+    return;
+  }
 
   // ── Step 3: Epoch check ───────────────────────────────────────────────────
   const key = sessionKey(userId, roomCode);

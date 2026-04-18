@@ -79,6 +79,15 @@ export class TypingEngine {
     return this._correctKeystrokes / this._totalKeystrokes;
   }
 
+  /**
+   * Advance the cursor to a specific index (used after reconnect to restore
+   * the player's position from the server's authoritative charIndex).
+   * Clamps to passage length.
+   */
+  resumeFrom(charIndex: number): void {
+    this._cursorPos = Math.min(charIndex, this.passage.length);
+  }
+
   reset(): void {
     this._cursorPos = 0;
     this._errors = 0;

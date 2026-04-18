@@ -9,6 +9,7 @@ vi.mock("../lib/resume-token.js", () => ({
   mintResumeToken: vi.fn(),
   verifyResumeToken: vi.fn(),
   RESUME_WINDOW_MS: 20_000,
+  GRACE_MS: 30_000,
 }));
 
 import { finishRace } from "./race-handlers.js";
@@ -461,6 +462,46 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
     );
 
     expect(spy).toHaveBeenCalledWith("reconnect-error", expect.objectContaining({ reason: "token-attempt-cap-exceeded" }));
+  });
+
+  // CRITICAL 1: Cross-user session hijack prevention — Clerk-authed userId on the
+  // socket must match the userId embedded in the verified token.
+  it("rejects reconnect when Clerk-authed socket userId does not match token userId (identity-mismatch)", async () => {
+    // Alice's valid token submitted on Bob's Clerk-authed socket.
+    const newSocket = createMockSocket({
+      id: "sock-bob",
+      data: { userId: "bob", roomCode: "ROOM1" },
+    });
+
+    mockVerifyResumeToken.mockReturnValue({
+      valid: true,
+      payload: { userId: "alice", roomCode: "ROOM1", sessionEpoch: 1, sessionId: "sid-alice", issuedAt: Date.now() },
+    });
+
+    const socketRegistry = new Map<string, any>();
+    const sessionStore = new Map<string, { epoch: number; sessionId: string; matchId: string }>();
+    sessionStore.set("alice:ROOM1", { epoch: 1, sessionId: "sid-alice", matchId: "match-1" });
+
+    await handleNewReconnect(
+      io as any,
+      newSocket as any,
+      roomManager as any,
+      raceController as any,
+      SECRET,
+      "alice-valid-token",
+      socketRegistry,
+      sessionStore
+    );
+
+    // Must emit identity-mismatch error and not proceed with reconnect.
+    expect(newSocket.emit).toHaveBeenCalledWith("reconnect-error", { reason: "identity-mismatch" });
+    expect(roomManager.incrementEpoch).not.toHaveBeenCalled();
+    expect(roomManager.reconnectPlayer).not.toHaveBeenCalled();
+    // resume-state must NOT be emitted.
+    const resumeStateCall = (newSocket.emit as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c: any[]) => c[0] === "resume-state"
+    );
+    expect(resumeStateCall).toBeUndefined();
   });
 
   it("resume-state includes every connected player's current charIndex + isConnected", async () => {
