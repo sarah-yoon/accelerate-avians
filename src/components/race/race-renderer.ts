@@ -239,7 +239,10 @@ export function drawRace(
     if (!racer.isPlayer && (racer.isDisconnected || racer.isFrozen)) {
       racer.sprite.setFps(4); // idle rate per spec § 2.2.1
     } else if (!racer.isPlayer) {
-      racer.sprite.setFps(8); // normal race rate
+      // TODO(Phase 5 § 3.1): derive flapFps from opponent currentWPM:
+      //   flapFps = clamp(currentWPM / 10, 4, 12)
+      // For now, fixed 8 fps keeps birds visibly animated during Phase 2.
+      racer.sprite.setFps(8);
     }
 
     // Skip drawing if off-screen (but still update sprite)

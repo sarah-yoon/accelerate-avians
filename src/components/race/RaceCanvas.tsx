@@ -293,7 +293,6 @@ export function RaceCanvas({
 
       // Update ghost positions — keep running even after player finishes
       if (raceStartTimeRef.current && (phaseRef.current === "racing" || phaseRef.current === "finished")) {
-        const elapsed = performance.now() - raceStartTimeRef.current;
         const now = performance.now();
 
         // Steady-state render lag: 200 ms, warmup: 350 ms (until clock-sync has
@@ -333,6 +332,7 @@ export function RaceCanvas({
           } else {
             // Legacy path: read raw _liveProgress from the ghost payload
             // (used for solo ghost replay and until P2-12 fills the buffer).
+            const elapsed = now - raceStartTimeRef.current;
             const liveProgress = (ghost as GhostRacer & { _liveProgress?: number })._liveProgress;
             ghostProgress = liveProgress !== undefined
               ? liveProgress
