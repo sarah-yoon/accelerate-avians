@@ -92,6 +92,10 @@ export function useMultiplayerRace(
   /** Whether we are currently inside the racing phase (used by disconnect handler). */
   const isRacingRef = useRef(false);
 
+  /** Pending reconnect handler registered via sock.once("connect", …); stored so
+   *  the useEffect cleanup can remove it if the component unmounts before reconnect. */
+  const pendingReconnectHandlerRef = useRef<(() => void) | null>(null);
+
   // Keep isRacingRef in sync with lobbyPhase without a closure capture problem.
   useEffect(() => {
     isRacingRef.current = lobbyPhase === "racing";
@@ -211,6 +215,9 @@ export function useMultiplayerRace(
           p.userId === userId ? { ...p, isConnected: true } : p
         )
       );
+      // Clear stale samples from before the disconnect; the interpolator will
+      // re-seed from the next player-progress broadcast (mirrors onPlayerDropped).
+      samplesRef.current?.delete(userId);
     }
 
     /** Player dropped (DNF) after the 20 s reconnect window expired. */
@@ -300,13 +307,12 @@ export function useMultiplayerRace(
           return entry ? { ...p, isConnected: entry.isConnected } : p;
         })
       );
-      // Seed opponent sample buffers with the current charIndex snapshot.
-      // Server time is approximately now on the server — use our toServerTime
-      // to set a baseline sample so interpolation has something to work from.
-      const approxServerNow = clockSyncRef.current.toServerTime(performance.now());
-      for (const entry of payload.players) {
-        const buf: Sample[] = [{ serverTime: approxServerNow, charIndex: entry.charIndex }];
-        samplesRef.current.set(entry.userId, buf);
+      // Clear opponent sample buffers — ClockSync is not yet ready at this point
+      // (the post-reconnect handshake pings haven't returned), so any synthetic
+      // serverTime would be wildly off. The interpolator will re-seed from the
+      // first real player-progress broadcast that arrives after reconnect.
+      for (const p of payload.players) {
+        samplesRef.current.delete(p.userId);
       }
       // Re-run the clock handshake so offset stays fresh after the reconnect.
       startHandshake(sock);
@@ -323,14 +329,17 @@ export function useMultiplayerRace(
       console.log("[useMultiplayerRace] socket disconnect:", reason);
       if (isRacingRef.current && resumeTokenRef.current) {
         // Socket.IO will auto-reconnect the transport; once it does, emit reconnect.
-        sock.once("connect", () => {
+        const handler = () => {
           if (resumeTokenRef.current) {
             console.log("[useMultiplayerRace] emitting reconnect with token");
             sock.emit("reconnect", { token: resumeTokenRef.current });
             // Also re-run handshake on reconnect.
             startHandshake(sock);
           }
-        });
+          pendingReconnectHandlerRef.current = null;
+        };
+        sock.once("connect", handler);
+        pendingReconnectHandlerRef.current = handler;
       }
     }
 
@@ -370,6 +379,13 @@ export function useMultiplayerRace(
       sock.off("resume-state", onResumeState);
       sock.off("reconnect-error", onReconnectError);
       sock.off("disconnect", onSocketDisconnect);
+
+      // Remove any orphaned once("connect") reconnect handler to prevent it
+      // from firing on a dead (unmounted) component.
+      if (pendingReconnectHandlerRef.current) {
+        sock.off("connect", pendingReconnectHandlerRef.current);
+        pendingReconnectHandlerRef.current = null;
+      }
 
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);

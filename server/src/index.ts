@@ -128,6 +128,13 @@ io.on("connection", (socket) => {
       /* socketRegistry */ undefined,  // uses defaultSocketRegistry
       defaultSessionStore,
     );
+    // Reset ping counter so the post-reconnect handshake (5 more pings) can
+    // complete without hitting the soft rate-limit. handleNewReconnect emits
+    // "reconnect-error" on any failure path and returns early; on success it
+    // reaches this point having emitted "resume-state". Resetting here (after
+    // await) is safe: on failure the client enters an error state and won't
+    // send more pings, so the reset is a no-op in practice.
+    timeSyncPingCount = 0;
   });
 
   socket.on("disconnect", (reason) => {

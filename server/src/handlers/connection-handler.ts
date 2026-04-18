@@ -329,11 +329,10 @@ export async function handleNewReconnect(
   const raceElapsedMs = room.raceStartedAt ? Date.now() - room.raceStartedAt : 0;
 
   // Get per-player charIndex from the race controller's progress snapshot.
-  // getProgressSnapshot returns progress as a fraction [0,1]; convert to charIndex.
-  const passageCharCount = room.passageCharCount ?? 1;
+  // getProgressSnapshot returns { userId, progress, charIndex } — use charIndex directly.
   const progressSnapshot = raceController.getProgressSnapshot(roomCode);
-  const progressByUserId = new Map(
-    progressSnapshot.map((p) => [p.userId, Math.round(p.progress * passageCharCount)])
+  const progressByUserId = new Map<string, number>(
+    progressSnapshot.map((p) => [p.userId, p.charIndex])
   );
 
   // Build the full players snapshot (every player in the room).

@@ -343,8 +343,8 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
     });
 
     raceController.getProgressSnapshot.mockReturnValue([
-      { userId: "user_1", progress: 0.3 },
-      { userId: "user_2", progress: 0.5 },
+      { userId: "user_1", progress: 0.3, charIndex: 4 },
+      { userId: "user_2", progress: 0.5, charIndex: 7 },
     ]);
 
     // Socket registry: maps socketId -> socket
@@ -489,8 +489,8 @@ describe("handleNewReconnect (P2-7 reconnection protocol)", () => {
 
     // Bob has charIndex=5 (progress 5/16 ≈ 0.3125)
     raceController.getProgressSnapshot.mockReturnValue([
-      { userId: "user_1", progress: 0.2 },   // alice at charIndex≈3
-      { userId: "user_2", progress: 5 / 16 }, // bob at charIndex=5
+      { userId: "user_1", progress: 0.2,      charIndex: 3 },  // alice at charIndex=3
+      { userId: "user_2", progress: 5 / 16,   charIndex: 5 },  // bob at charIndex=5
     ]);
 
     const socketRegistry = new Map<string, any>();
