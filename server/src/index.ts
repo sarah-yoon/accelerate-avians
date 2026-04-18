@@ -8,11 +8,16 @@ import { RaceController } from "./race/race-controller.js";
 import { registerRoomHandlers } from "./handlers/room-handlers.js";
 import { registerRaceHandlers, finishRace } from "./handlers/race-handlers.js";
 import { handleDisconnect } from "./handlers/connection-handler.js";
+import { readSecretFromEnv } from "./lib/resume-token.js";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketData,
 } from "./types.js";
+
+// Validate required secrets before binding port.
+const RESUME_TOKEN_SECRET = readSecretFromEnv();
+void RESUME_TOKEN_SECRET;
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
