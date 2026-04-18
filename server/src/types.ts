@@ -57,6 +57,8 @@ export interface ServerToClientEvents {
   }) => void;
   "player-left": (payload: { userId: string }) => void;
   "player-reconnected": (payload: { userId: string }) => void;
+  "player-disconnected": (payload: { userId: string }) => void;
+  "player-dropped": (payload: { userId: string }) => void;
   "race-started": (payload: {
     passage: { id: string; text: string; charCount: number; wordCount: number };
     countdownMs: number;
@@ -84,6 +86,20 @@ export interface ServerToClientEvents {
     raceStartedAt?: number;
     yourCharIndex?: number;
   }) => void;
+  /** Issued to a newly connected socket after auth + join. Client stores this. */
+  "resume-token": (payload: { token: string }) => void;
+  /** Sent to a reconnecting socket — full race state snapshot. */
+  "resume-state": (payload: {
+    token: string;
+    charIndex: number;
+    raceElapsedMs: number;
+    comboCount: number;
+    comboPaused: boolean;
+    comboPausedAtCharIndex: number;
+    players: Array<{ userId: string; charIndex: number; isConnected: boolean }>;
+  }) => void;
+  /** Emitted to the reconnecting socket on any rejection during the reconnect handshake. */
+  "reconnect-error": (payload: { reason: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -99,6 +115,8 @@ export interface ClientToServerEvents {
   "leave-room": (payload: { roomCode: string }) => void;
   "play-again": (payload: { roomCode: string }) => void;
   "change-difficulty": (payload: { roomCode: string; difficulty: "short" | "medium" | "long" }) => void;
+  /** Client emits this on reconnect with a stored resumeToken to resume a racing session. */
+  "reconnect": (payload: { token: string }) => void;
 }
 
 export interface SocketData {
