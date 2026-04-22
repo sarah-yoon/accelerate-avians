@@ -16,6 +16,7 @@ import {
   SlowConsumerSampler,
 } from "./handlers/connection-handler.js";
 import { readSecretFromEnv } from "./lib/resume-token.js";
+import { attachLoadtestEndpoint } from "./loadtest-endpoint.js";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -48,6 +49,9 @@ app.get("/health", (_req, res) => {
 });
 
 const httpServer = createServer(app);
+
+// Phase 3 load-test endpoint (no-op unless LOADTEST_ENDPOINT=1).
+attachLoadtestEndpoint(httpServer);
 
 const io = new Server<
   ClientToServerEvents,

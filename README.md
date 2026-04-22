@@ -46,6 +46,12 @@ Both services share the same PostgreSQL database and Clerk authentication.
 - **Multiplayer races** are *server-authoritative* — final WPM and accuracy are derived from server-stamped progress events received over WebSocket. Client-supplied keystroke timing data is preserved (`clientGhostData`) but used only for the existing solo-mode replay visualization.
 - **Solo races** are *server-validated* but use client-supplied input (the typing happens entirely in-browser; only the final result is POSTed to `/api/scores`). Solo WPM is recomputed server-side from the submitted timing data; solo accuracy is client-reported.
 
+## Netcode writeup
+
+For a deep dive on multiplayer scoring, reconnection, interpolation, and measured capacity — see [`docs/netcode.md`](docs/netcode.md).
+
+**Measured capacity** (Phase 3 load test; single macOS dev host, loopback): 200 concurrent rooms (800 virtual typists at 8 Hz) with **p99 broadcast latency under 10 ms**. The single-instance cliff is at 400 rooms (p99 rises to ~488 ms). Hosted deploy is Railway hobby tier + Vercel hobby; a paid plan would be required for sustained loads at the upper end.
+
 ## Tech Stack
 
 | Layer          | Technology                          |
