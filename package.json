@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:seed": "npx tsx prisma/seed.ts",
+    "load-test": "tsx scripts/load-test.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.7",
