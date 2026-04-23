@@ -8,6 +8,7 @@ import type {
 import type { RoomManager } from "../rooms/room-manager.js";
 import type { RaceController } from "../race/race-controller.js";
 import { ProgressValidator } from "../race/progress-validator.js";
+import { runAllChecks, bucketsFromGhost } from "../race/cheat-detector.js";
 import { prisma } from "../lib/prisma.js";
 import { issueResumeToken } from "./connection-handler.js";
 
@@ -219,6 +220,33 @@ export function registerRaceHandlers(
     const match = await prisma.match.findUnique({ where: { roomCode } });
     if (match) {
       const finishedData = raceController.getFinishedPlayerData(roomCode, userId);
+      const serverGhost = finishedData?.serverGhost ?? [];
+
+      // Phase 4 — Run post-race anti-cheat checks. All checks currently
+      // ship at LOG level; corpus calibration showed ≥95% precision but
+      // promotion to INVALIDATE is gated on a week of real-world data
+      // per spec § 2.1.3. Violations are persisted to CheatViolation.
+      const checkResults = runAllChecks({
+        serverGhost,
+        updateBuckets: bucketsFromGhost(serverGhost),
+        wpm: finishResult.wpm,
+      });
+      const triggered = checkResults.filter((r) => r.triggered).slice(0, 5); // per-match cap
+      for (const r of triggered) {
+        try {
+          await prisma.cheatViolation.create({
+            data: {
+              userId,
+              matchId: match.id,
+              check: r.check,
+              numericValue: r.numericValue,
+              action: "LOG",
+            },
+          });
+        } catch (err) {
+          console.error(`[cheat-detector] Failed to log ${r.check} for ${userId}:`, err);
+        }
+      }
 
       await prisma.matchPlayer.updateMany({
         where: { matchId: match.id, userId },
@@ -227,8 +255,8 @@ export function registerRaceHandlers(
           accuracy: finishResult.accuracy,
           placement: finishResult.placement,
           clientGhostData: ghostData as never,
-          serverGhost: (finishedData?.serverGhost ?? []) as never,
-          flagged: false,
+          serverGhost: serverGhost as never,
+          flagged: false, // LOG-only — promotion to INVALIDATE is future work
           status: "finished",
           finishedAt: new Date(),
         },
