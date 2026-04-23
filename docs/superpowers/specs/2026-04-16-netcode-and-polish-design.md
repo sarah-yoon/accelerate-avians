@@ -404,6 +404,8 @@ Both variants use placeholders `{N}`, `{X}` filled only after `docs/netcode.md` 
 
 **Selected variant (as of Phase 4 merge):** Variant A. Phase 4's corpus-calibrated statistical anti-cheat layer has all 5 checks clearing ≥95% precision on the labeled corpus (`docs/netcode.md` § 5); checks are shipped at LOG level pending real-world promotion criteria. Load-test numbers (200 rooms, p99 10ms) filled from Phase 3 § 7.1.
 
+**Phase 5 status (as of 2026-04-22 merge):** 5.1 (recruiter-first impression), 5.2 (juice pass), and 5.3 (spec § 3 remainder) all shipped. Deferred with documented rationale: 9 themed error-state sprite files (procedural glyph illustrations shipped instead), per-player ready indicators + host-transfer UI toast (server wire-up not in scope), full Tab-focus trap beyond Escape/click-outside (modals are dismissible via other means).
+
 ### 4.2 Interview talking points
 
 1. **Hard technical problem** — entity interpolation with clock sync. Whiteboard: `serverTime` per broadcast, EMA-smoothed offset on the client, render at `now − INTERP_DELAY_MS` against bracketing samples. Discuss the dropped-packet case (extrapolate ≤150 ms, then freeze) and why freeze beats wild extrapolation. Discuss the median-of-5 cold-start handshake and why naive 5-sample averaging would be poisoned by TCP slow-start.
