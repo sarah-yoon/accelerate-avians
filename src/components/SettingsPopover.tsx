@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { subscribeRacePhase } from "@/lib/race-phase-signal";
+import { getAudioMuted, setAudioMuted } from "@/hooks/useAudio";
 
 const MOTION_KEY = "aa.motion.reduced";
 const CONTRAST_KEY = "aa.contrast.high";
@@ -18,10 +20,24 @@ interface SettingsPopoverProps {
   disabled?: boolean;
 }
 
-export function SettingsPopover({ disabled }: SettingsPopoverProps) {
+export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps) {
   const [open, setOpen] = useState(false);
   const [motionReduced, setMotionReduced] = useState<boolean | null>(null);
   const [highContrast, setHighContrast] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [racing, setRacing] = useState(false);
+  const disabled = disabledProp || racing;
+
+  // Auto-disable during a race (spec § 3.4) — prevents focus-stealing
+  // when the user clicks the gear while typing. Subscribes to the
+  // module-level race-phase signal so we don't need React context.
+  useEffect(() => {
+    return subscribeRacePhase((p) => {
+      const active = p === "racing" || p === "countdown";
+      setRacing(active);
+      if (active) setOpen(false);
+    });
+  }, []);
   const panelRef = useRef<HTMLDivElement>(null);
   const firstToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -35,6 +51,8 @@ export function SettingsPopover({ disabled }: SettingsPopoverProps) {
     const contrast = window.localStorage.getItem(CONTRAST_KEY) === "true";
     setHighContrast(contrast);
     if (contrast) document.documentElement.setAttribute("data-aa-contrast", "high");
+
+    setMuted(getAudioMuted());
   }, []);
 
   // Apply high-contrast root attribute whenever the flag changes
@@ -81,6 +99,12 @@ export function SettingsPopover({ disabled }: SettingsPopoverProps) {
     const next = !highContrast;
     window.localStorage.setItem(CONTRAST_KEY, String(next));
     setHighContrast(next);
+  };
+
+  const toggleMuted = () => {
+    const next = !muted;
+    setAudioMuted(next);
+    setMuted(next);
   };
 
   return (
@@ -135,6 +159,22 @@ export function SettingsPopover({ disabled }: SettingsPopoverProps) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="mb-4">
+            <p className="font-heading text-[7px] text-pixel-text-dim mb-2 tracking-wider">
+              SOUND
+            </p>
+            <button
+              onClick={toggleMuted}
+              className={`w-full font-heading text-[7px] py-1.5 border ${
+                !muted
+                  ? "bg-pixel-bird-yellow text-pixel-black border-pixel-bird-yellow"
+                  : "border-pixel-text-dim text-pixel-text-dim hover:border-pixel-text-white hover:text-pixel-text-white"
+              }`}
+            >
+              {muted ? "MUTED" : "ON"}
+            </button>
           </div>
 
           <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { PixelCrown } from "@/components/PixelCrown";
 import type { MultiplayerPlayer, Difficulty } from "@/types";
 
@@ -28,6 +29,20 @@ export function LobbyWaiting({
   connectionError,
 }: LobbyWaitingProps) {
   const canStart = isHost && players.filter((p) => p.isConnected).length >= 2;
+  const [copied, setCopied] = useState<"link" | "code" | null>(null);
+  const [fallbackText, setFallbackText] = useState<string | null>(null);
+
+  async function copyWithFallback(text: string, which: "link" | "code") {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(which);
+      setTimeout(() => setCopied(null), 1600);
+    } catch {
+      // Insecure-context or permission-denied fallback — show a readonly
+      // field the user can select-and-copy manually.
+      setFallbackText(text);
+    }
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 p-8">
@@ -37,15 +52,44 @@ export function LobbyWaiting({
         <p className="font-body text-pixel-text-dim text-sm uppercase tracking-widest">
           Room Code
         </p>
-        <p className="font-heading text-pixel-text-white text-4xl tracking-[0.3em] mt-2">
-          {roomCode}
-        </p>
         <button
-          onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lobby/${roomCode}`)}
-          className="font-body text-pixel-bird-blue text-sm mt-2 hover:underline"
+          onClick={() => copyWithFallback(roomCode, "code")}
+          title="Click to copy the room code"
+          className="font-heading text-pixel-text-white text-4xl tracking-[0.3em] mt-2 hover:text-pixel-bird-yellow transition-colors"
         >
-          Copy invite link
+          {roomCode}
         </button>
+        <div className="flex gap-4 justify-center mt-3">
+          <button
+            onClick={() => copyWithFallback(roomCode, "code")}
+            className="font-body text-pixel-bird-blue text-sm hover:underline"
+          >
+            {copied === "code" ? "Code copied!" : "Copy code"}
+          </button>
+          <button
+            onClick={() =>
+              copyWithFallback(`${window.location.origin}/lobby/${roomCode}`, "link")
+            }
+            className="font-body text-pixel-bird-blue text-sm hover:underline"
+          >
+            {copied === "link" ? "Link copied!" : "Copy invite link"}
+          </button>
+        </div>
+        {fallbackText && (
+          <div className="mt-3 flex flex-col items-center gap-1">
+            <p className="font-body text-pixel-text-dim text-xs">
+              Press Cmd/Ctrl+C to copy:
+            </p>
+            <input
+              type="text"
+              readOnly
+              value={fallbackText}
+              onFocus={(e) => e.currentTarget.select()}
+              autoFocus
+              className="bg-pixel-panel text-pixel-text-white px-2 py-1 text-sm font-mono w-full max-w-sm"
+            />
+          </div>
+        )}
       </div>
 
       {/* Difficulty selector (host) or badge (non-host) */}

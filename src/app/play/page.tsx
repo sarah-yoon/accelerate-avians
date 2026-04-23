@@ -9,6 +9,7 @@ import { LiveAnnouncer } from "@/components/race/LiveAnnouncer";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { MobileChoice } from "@/components/MobileChoice";
+import { setRacePhase } from "@/lib/race-phase-signal";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
 import type { Difficulty } from "@/types";
@@ -41,6 +42,12 @@ export default function PlayPage() {
   useEffect(() => {
     if (race.result) setResultOverlay(true);
   }, [race.result]);
+
+  // Publish race phase so SettingsPopover can disable itself mid-race.
+  useEffect(() => {
+    setRacePhase(race.phase);
+    return () => setRacePhase("idle");
+  }, [race.phase]);
 
   return (
     <>

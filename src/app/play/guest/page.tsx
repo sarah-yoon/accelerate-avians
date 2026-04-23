@@ -8,6 +8,8 @@ import { LiveAnnouncer } from "@/components/race/LiveAnnouncer";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { MobileChoice } from "@/components/MobileChoice";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { setRacePhase } from "@/lib/race-phase-signal";
+import { stashResult } from "@/lib/claim-result";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
 
@@ -35,6 +37,26 @@ export default function GuestPlayPage() {
   useEffect(() => {
     if (race.result) setResultOverlay(true);
   }, [race.result]);
+
+  useEffect(() => {
+    setRacePhase(race.phase);
+    return () => setRacePhase("idle");
+  }, [race.phase]);
+
+  // Spec § 3.7 — stash the guest result when the race finishes so a
+  // post-signup boot hook can POST it to /api/scores within 30 min.
+  const stashedRef = useRef(false);
+  useEffect(() => {
+    if (!race.result || !race.passage || stashedRef.current) return;
+    stashedRef.current = true;
+    stashResult({
+      passageId: race.passage.id,
+      clientGhostData: race.typingSummary.clientGhostData,
+      totalKeystrokes: race.typingSummary.totalKeystrokes,
+      correctKeystrokes: race.typingSummary.correctKeystrokes,
+      completedAt: Date.now(),
+    });
+  }, [race.result, race.passage, race.typingSummary]);
 
   return (
     <>
