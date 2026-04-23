@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTyping } from "./useTyping";
 import { useCombo, type ComboState } from "./useCombo";
+import { useAudio } from "./useAudio";
 import type { Passage, GhostRacer, RaceResult, RacePhase } from "@/types";
 
 interface UseRaceReturn {
@@ -22,6 +23,12 @@ interface UseRaceReturn {
   comboState: ComboState;
   /** Increments every time the player's cursor crosses a space — drives word-flash juice. */
   wordsCompleted: number;
+  /** Exposed so guest mode can stash the result for post-signup claim. */
+  typingSummary: {
+    clientGhostData: Array<{ charIndex: number; ms: number }>;
+    totalKeystrokes: number;
+    correctKeystrokes: number;
+  };
   startRace: (difficulty?: string, samePassage?: boolean, botDifficulty?: string) => Promise<void>;
   handleKeyDown: (e: KeyboardEvent) => void;
   handleCompositionStart: () => void;
@@ -44,13 +51,24 @@ export function useRace(clerkId?: string): UseRaceReturn {
   const comboRecord = combo.record;
   const [wordsCompleted, setWordsCompleted] = useState(0);
   const prevCursorRef = useRef(0);
+  const audio = useAudio();
+  const audioPlayRef = useRef(audio.play);
+  useEffect(() => { audioPlayRef.current = audio.play; }, [audio.play]);
+
+  const onKeystroke = useCallback(
+    (event: { kind: "correct" | "incorrect"; charIndex: number }) => {
+      comboRecord(event);
+      audioPlayRef.current(event.kind === "correct" ? "correct" : "incorrect");
+    },
+    [comboRecord]
+  );
 
   const typing = useTyping(
     passage?.text ?? "",
     raceStartTime,
     phase === "racing",
     undefined,
-    comboRecord
+    onKeystroke
   );
 
   const playerProgress = passage
@@ -90,6 +108,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
   useEffect(() => {
     if (typingComplete && phase === "racing" && passage) {
       setPhase("finished");
+      audioPlayRef.current("finish");
 
       // Calculate placement vs ghosts
       const ghostFinishTimes = ghosts.map((g) => {
@@ -202,6 +221,12 @@ export function useRace(clerkId?: string): UseRaceReturn {
     [clerkId, typing, passage, comboRecord]
   );
 
+  // Countdown beep on each tick (3 / 2 / 1 / GO)
+  useEffect(() => {
+    if (phase !== "countdown") return;
+    audioPlayRef.current("countdown");
+  }, [countdownValue, phase]);
+
   // Update elapsedMs during racing
   useEffect(() => {
     if (phase !== "racing" || !raceStartTime) return;
@@ -236,6 +261,11 @@ export function useRace(clerkId?: string): UseRaceReturn {
     elapsedMs,
     comboState: combo.state,
     wordsCompleted,
+    typingSummary: {
+      clientGhostData: typing.clientGhostData,
+      totalKeystrokes: typing.totalKeystrokes,
+      correctKeystrokes: typing.correctKeystrokes,
+    },
     startRace,
     handleKeyDown: typing.handleKeyDown,
     handleCompositionStart: typing.handleCompositionStart,
