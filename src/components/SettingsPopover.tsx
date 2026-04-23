@@ -41,6 +41,7 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
     });
   }, []);
   const panelRef = useRef<HTMLDivElement>(null);
+  const gearRef = useRef<HTMLButtonElement>(null);
   const firstToggleRef = useRef<HTMLButtonElement>(null);
 
   // Hydrate from localStorage on mount
@@ -80,7 +81,10 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
     if (!open) return;
     const onClick = (e: MouseEvent) => {
       if (!panelRef.current) return;
-      if (!panelRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // Don't close on gear clicks — let the gear's own onClick toggle.
+      if (gearRef.current?.contains(target)) return;
+      if (!panelRef.current.contains(target)) setOpen(false);
     };
     // Defer one tick so the gear click doesn't immediately close
     const timer = setTimeout(() => window.addEventListener("mousedown", onClick), 0);
@@ -119,6 +123,7 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
   return (
     <>
       <button
+        ref={gearRef}
         type="button"
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
@@ -140,9 +145,19 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
           aria-label="Settings"
           className="fixed top-16 right-3 z-30 w-64 bg-pixel-panel border-2 border-pixel-text-white p-4 text-pixel-text-white"
         >
-          <h2 className="font-heading text-pixel-bird-yellow text-[9px] tracking-widest mb-3">
-            SETTINGS
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading text-pixel-bird-yellow text-[9px] tracking-widest">
+              SETTINGS
+            </h2>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close settings"
+              className="font-heading text-[12px] leading-none text-pixel-text-dim hover:text-pixel-bird-yellow w-5 h-5 flex items-center justify-center"
+            >
+              ✕
+            </button>
+          </div>
 
           <div className="mb-4">
             <p className="font-heading text-[7px] text-pixel-text-dim mb-2 tracking-wider">
