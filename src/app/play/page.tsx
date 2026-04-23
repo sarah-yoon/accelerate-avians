@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRace } from "@/hooks/useRace";
 import { RaceCanvas } from "@/components/race/RaceCanvas";
+import { ComboMeter } from "@/components/race/ComboMeter";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { MobileInterstitial } from "@/components/MobileInterstitial";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
@@ -41,6 +42,10 @@ export default function PlayPage() {
   return (
     <>
       <MobileInterstitial />
+
+      {race.phase === "racing" && (
+        <ComboMeter count={race.comboState.count} paused={race.comboState.paused} />
+      )}
 
       <main className="hidden md:flex flex-col items-center min-h-screen bg-pixel-black p-6">
         {/* Game HUD header */}

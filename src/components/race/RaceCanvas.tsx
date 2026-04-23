@@ -286,9 +286,10 @@ export function RaceCanvas({
       // Capture progress before updating so we can compute the delta
       const prevProgress = racers[0]?.progress ?? 0;
 
-      // Update player position
+      // Update player position + current WPM (drives flap fps per spec § 3.1)
       if (racers[0]) {
         updateRacerPosition(racers[0], playerProgressRef.current, deltaMs);
+        racers[0].wpm = wpmRef.current;
       }
 
       // Update ghost positions — keep running even after player finishes
