@@ -2,20 +2,26 @@
 
 import { useEffect, useState } from "react";
 
+const CRT_KEY = "crt-enabled";
+
 export function CrtEffect() {
   const [enabled, setEnabled] = useState(true);
   const [booted, setBooted] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("crt-enabled");
+    const stored = localStorage.getItem(CRT_KEY);
     if (stored === "false") setEnabled(false);
-    // Trigger boot animation after a frame
     requestAnimationFrame(() => setBooted(true));
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem("crt-enabled", String(enabled));
-  }, [enabled]);
+    // Listen for toggle events from SettingsPopover (same-tab storage event
+    // dispatched synthetically after setItem).
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== CRT_KEY) return;
+      setEnabled(e.newValue !== "false");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   return (
     <>
@@ -28,15 +34,21 @@ export function CrtEffect() {
         </>
       )}
 
-      <button
-        className={`crt-toggle ${enabled ? "crt-toggle-on" : "crt-toggle-off"}`}
-        onClick={() => setEnabled(!enabled)}
-      >
-        CRT {enabled ? "ON" : "OFF"}
-      </button>
-
       <BodyClassManager enabled={enabled} booted={booted} />
     </>
+  );
+}
+
+export function getCrtEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(CRT_KEY) !== "false";
+}
+
+export function setCrtEnabled(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(CRT_KEY, String(enabled));
+  window.dispatchEvent(
+    new StorageEvent("storage", { key: CRT_KEY, newValue: String(enabled) })
   );
 }
 

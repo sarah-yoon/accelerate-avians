@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { subscribeRacePhase } from "@/lib/race-phase-signal";
 import { getAudioMuted, setAudioMuted } from "@/hooks/useAudio";
+import { getCrtEnabled, setCrtEnabled } from "./CrtEffect";
 
 const MOTION_KEY = "aa.motion.reduced";
 const CONTRAST_KEY = "aa.contrast.high";
@@ -25,6 +26,7 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
   const [motionReduced, setMotionReduced] = useState<boolean | null>(null);
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [crtEnabled, setCrtState] = useState(true);
   const [racing, setRacing] = useState(false);
   const disabled = disabledProp || racing;
 
@@ -53,6 +55,7 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
     if (contrast) document.documentElement.setAttribute("data-aa-contrast", "high");
 
     setMuted(getAudioMuted());
+    setCrtState(getCrtEnabled());
   }, []);
 
   // Apply high-contrast root attribute whenever the flag changes
@@ -107,6 +110,12 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
     setMuted(next);
   };
 
+  const toggleCrt = () => {
+    const next = !crtEnabled;
+    setCrtEnabled(next);
+    setCrtState(next);
+  };
+
   return (
     <>
       <button
@@ -115,7 +124,7 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
         disabled={disabled}
         aria-label={disabled ? "Settings (disabled during race)" : "Open settings"}
         title={disabled ? "Settings available between races" : "Settings"}
-        className={`fixed top-3 right-3 z-30 w-9 h-9 flex items-center justify-center font-heading text-[12px] border-2 ${
+        className={`fixed top-3 right-3 z-30 w-14 h-14 flex items-center justify-center text-[28px] border-2 ${
           disabled
             ? "border-pixel-text-dim text-pixel-text-dim cursor-not-allowed opacity-40"
             : "border-pixel-text-white text-pixel-text-white hover:border-pixel-bird-yellow hover:text-pixel-bird-yellow bg-pixel-panel"
@@ -129,7 +138,7 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
           ref={panelRef}
           role="dialog"
           aria-label="Settings"
-          className="fixed top-14 right-3 z-30 w-64 bg-pixel-panel border-2 border-pixel-text-white p-4 text-pixel-text-white"
+          className="fixed top-20 right-3 z-30 w-64 bg-pixel-panel border-2 border-pixel-text-white p-4 text-pixel-text-white"
         >
           <h2 className="font-heading text-pixel-bird-yellow text-[9px] tracking-widest mb-3">
             SETTINGS
@@ -174,6 +183,22 @@ export function SettingsPopover({ disabled: disabledProp }: SettingsPopoverProps
               }`}
             >
               {muted ? "MUTED" : "ON"}
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <p className="font-heading text-[7px] text-pixel-text-dim mb-2 tracking-wider">
+              CRT EFFECT
+            </p>
+            <button
+              onClick={toggleCrt}
+              className={`w-full font-heading text-[7px] py-1.5 border ${
+                crtEnabled
+                  ? "bg-pixel-bird-yellow text-pixel-black border-pixel-bird-yellow"
+                  : "border-pixel-text-dim text-pixel-text-dim hover:border-pixel-text-white hover:text-pixel-text-white"
+              }`}
+            >
+              {crtEnabled ? "ON" : "OFF"}
             </button>
           </div>
 

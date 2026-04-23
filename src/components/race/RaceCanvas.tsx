@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useLayoutEffect } from "react";
 import {
   drawRace,
   updateRacerPosition,
@@ -259,9 +259,12 @@ export function RaceCanvas({
 
   // Parallax background: seeded solely by `backgroundSeed` so it stays
   // stable across unrelated re-renders (e.g. ghosts-list population
-  // during race setup). Without this, `Math.random()` in the default
-  // constructor picks a different map each time loadAssets fires.
-  useEffect(() => {
+  // during race setup). useLayoutEffect (not useEffect) so the seeded
+  // parallax is ready BEFORE the browser paints the first frame — a
+  // plain useEffect ran after paint, causing one frame of the
+  // default-constructor's random map to flicker in before the seeded
+  // map swapped in.
+  useLayoutEffect(() => {
     parallaxRef.current = new ParallaxRenderer();
     if (backgroundSeed !== undefined) {
       parallaxRef.current.setSeed(backgroundSeed);
