@@ -108,3 +108,25 @@ model MatchPlayer {
   @@index([userId])
   @@map("match_players")
 }
+
+enum CheatAction {
+  LOG
+  INVALIDATE
+  KICK
+}
+
+model CheatViolation {
+  id           String      @id @default(cuid())
+  userId       String
+  matchId      String?
+  scoreId      String?
+  check        String
+  severity     Float       @default(1.0)
+  numericValue Float
+  action       CheatAction @default(LOG)
+  createdAt    DateTime    @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([check, createdAt(sort: Desc)])
+  @@map("cheat_violations")
+}
