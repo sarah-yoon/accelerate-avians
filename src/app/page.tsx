@@ -7,6 +7,7 @@ async function getLeaderboardPreview() {
     const scores = await prisma.score.findMany({
       where: {
         user: { clerkId: { not: { startsWith: "bot_" } } },
+        flagged: false,
       },
       orderBy: { wpm: "desc" },
       take: 5,
@@ -21,8 +22,36 @@ async function getLeaderboardPreview() {
   }
 }
 
+async function getTotals() {
+  try {
+    const [races, scoresWithPassage] = await Promise.all([
+      prisma.score.count({ where: { flagged: false } }),
+      prisma.score.findMany({
+        where: { flagged: false },
+        select: { passage: { select: { wordCount: true } } },
+      }),
+    ]);
+    const words = scoresWithPassage.reduce(
+      (sum, s) => sum + (s.passage?.wordCount ?? 0),
+      0
+    );
+    return { races, words };
+  } catch {
+    return null;
+  }
+}
+
+function formatTotal(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M+`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}k+`;
+  return String(n);
+}
+
 export default async function LandingPage() {
-  const topScores = await getLeaderboardPreview();
+  const [topScores, totals] = await Promise.all([
+    getLeaderboardPreview(),
+    getTotals(),
+  ]);
 
   return (
     <main className="game-screen relative overflow-hidden">
@@ -37,8 +66,24 @@ export default async function LandingPage() {
           </h1>
         </div>
 
-        {/* Game menu */}
-        <nav className="w-56 mb-12">
+        {/* Tagline — spec § 3.3 committed hero copy */}
+        <p className="font-heading text-pixel-text-dim text-[9px] md:text-[10px] text-center mt-2 mb-6 tracking-wider">
+          Race the flock. Type fast.
+        </p>
+
+        {/* Primary CTA — no-signup play path */}
+        <Link
+          href="/play/guest"
+          className="pixel-btn font-heading text-[11px] md:text-[13px] px-10 py-4 text-pixel-black animate-pulse-glow mb-6"
+        >
+          ▶ PLAY NOW
+        </Link>
+        <p className="font-heading text-pixel-text-dim text-[7px] tracking-wider mb-10">
+          NO ACCOUNT NEEDED
+        </p>
+
+        {/* Secondary menu — signed-in features */}
+        <nav className="w-56 mb-10">
           <Link href="/play" className="game-menu-item !py-3 !text-center !pl-0">
             SOLO RACE
           </Link>
@@ -85,10 +130,12 @@ export default async function LandingPage() {
           </div>
         )}
 
-        {/* Press start prompt */}
-        <p className="font-heading text-[7px] text-pixel-text-dim mt-10 animate-blink text-center">
-          SELECT AN OPTION
-        </p>
+        {/* Live counter — appears only if the query succeeded */}
+        {totals && totals.races > 0 && (
+          <p className="font-heading text-pixel-text-dim text-[7px] tracking-wider mt-8 opacity-60">
+            {formatTotal(totals.races)} RACES · {formatTotal(totals.words)} WORDS TYPED
+          </p>
+        )}
       </div>
     </main>
   );
