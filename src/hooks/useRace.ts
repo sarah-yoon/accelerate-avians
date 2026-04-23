@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTyping } from "./useTyping";
+import type { ErrorKey } from "@/components/ErrorOverlay";
 import { useCombo, type ComboState } from "./useCombo";
 import { useAudio } from "./useAudio";
 import type { Passage, GhostRacer, RaceResult, RacePhase } from "@/types";
@@ -29,6 +30,9 @@ interface UseRaceReturn {
     totalKeystrokes: number;
     correctKeystrokes: number;
   };
+  /** Set when startRace fails — consumed by page-level ErrorOverlay. */
+  startError: ErrorKey | null;
+  clearStartError: () => void;
   startRace: (difficulty?: string, samePassage?: boolean, botDifficulty?: string) => Promise<void>;
   handleKeyDown: (e: KeyboardEvent) => void;
   handleCompositionStart: () => void;
@@ -51,6 +55,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
   const comboRecord = combo.record;
   const [wordsCompleted, setWordsCompleted] = useState(0);
   const prevCursorRef = useRef(0);
+  const [startError, setStartError] = useState<ErrorKey | null>(null);
   const audio = useAudio();
   const audioPlayRef = useRef(audio.play);
   useEffect(() => { audioPlayRef.current = audio.play; }, [audio.play]);
@@ -155,6 +160,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
       setResult(null);
       setPhase("idle");
       setRaceStartTime(null);
+      setStartError(null);
 
       try {
         let passageData: Passage;
@@ -216,6 +222,11 @@ export function useRace(clerkId?: string): UseRaceReturn {
       } catch (error) {
         console.error("Failed to start race:", error);
         setIsLoading(false);
+        // Classify roughly from the error message so ErrorOverlay can
+        // show the appropriate themed surface.
+        const msg = String((error as Error)?.message ?? "");
+        if (msg.toLowerCase().includes("passage")) setStartError("passage-load-failed");
+        else setStartError("server-unreachable");
       }
     },
     [clerkId, typing, passage, comboRecord]
@@ -266,6 +277,8 @@ export function useRace(clerkId?: string): UseRaceReturn {
       totalKeystrokes: typing.totalKeystrokes,
       correctKeystrokes: typing.correctKeystrokes,
     },
+    startError,
+    clearStartError: () => setStartError(null),
     startRace,
     handleKeyDown: typing.handleKeyDown,
     handleCompositionStart: typing.handleCompositionStart,

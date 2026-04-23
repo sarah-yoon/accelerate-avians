@@ -7,6 +7,7 @@ import { ComboMeter } from "@/components/race/ComboMeter";
 import { LiveAnnouncer } from "@/components/race/LiveAnnouncer";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { MobileChoice } from "@/components/MobileChoice";
+import { ErrorOverlay } from "@/components/ErrorOverlay";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { setRacePhase } from "@/lib/race-phase-signal";
 import { stashResult } from "@/lib/claim-result";
@@ -64,6 +65,14 @@ export default function GuestPlayPage() {
 
       {race.phase === "racing" && (
         <ComboMeter count={race.comboState.count} paused={race.comboState.paused} />
+      )}
+
+      {race.startError && (
+        <ErrorOverlay
+          errorKey={race.startError}
+          primary={{ label: "Try Again", onClick: () => race.startRace("short", false) }}
+          onClose={race.clearStartError}
+        />
       )}
 
       <LiveAnnouncer

@@ -111,6 +111,10 @@ Measured by `server/src/race/cheat-detector.test.ts` running against the committ
 
 All checks clear the ≥95% precision bar on the current corpus. They ship at `LOG` pending real-world validation; per-match cap is 5 violations.
 
+### Scope
+
+**Cheat-detector applies to the multiplayer `player-finished` handler only** (`server/src/handlers/race-handlers.ts`). Solo races go through the Next.js `/api/scores` route which performs lighter client-supplied validation (`src/lib/score-validator.ts`). Moving the statistical checks to the solo path would require either extracting `cheat-detector.ts` to a shared package or duplicating the logic — deliberately deferred since the spec's "server-authoritative scoring" claim is explicitly scoped to multiplayer (see § 2 and README).
+
 ### What's not yet shipped (Phase 4.2)
 
 - Client-side `composed: true` IME flag wiring. Until that lands, `interval-stddev` may false-positive IME users (Korean, Japanese, Chinese, European-accented input) — another reason to hold at `LOG` despite the 100% corpus precision.

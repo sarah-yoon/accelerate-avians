@@ -9,6 +9,7 @@ import { LiveAnnouncer } from "@/components/race/LiveAnnouncer";
 import { TypingArea } from "@/components/typing/TypingArea";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { MobileChoice } from "@/components/MobileChoice";
+import { ErrorOverlay } from "@/components/ErrorOverlay";
 import { setRacePhase } from "@/lib/race-phase-signal";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
@@ -55,6 +56,14 @@ export default function PlayPage() {
 
       {race.phase === "racing" && (
         <ComboMeter count={race.comboState.count} paused={race.comboState.paused} />
+      )}
+
+      {race.startError && (
+        <ErrorOverlay
+          errorKey={race.startError}
+          primary={{ label: "Try Again", onClick: () => race.startRace(selectedLength, false) }}
+          onClose={race.clearStartError}
+        />
       )}
 
       <LiveAnnouncer
