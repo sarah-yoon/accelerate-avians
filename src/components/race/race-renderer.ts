@@ -35,6 +35,13 @@ export interface Racer {
    * § 2.2.1 of the netcode spec.
    */
   isFrozen: boolean;
+  /**
+   * Current WPM for the local player (spec § 3.1). Drives the player bird's
+   * flap rate via `flapFps = clamp(wpm / 10, 4, 12)`. Undefined or absent
+   * means the sprite stays at its default fps. Opponents derive their fps
+   * from interpolated progress (P2-11), not this field.
+   */
+  wpm?: number;
 }
 
 export interface RaceRendererState {
@@ -239,10 +246,13 @@ export function drawRace(
     if (!racer.isPlayer && (racer.isDisconnected || racer.isFrozen)) {
       racer.sprite.setFps(4); // idle rate per spec § 2.2.1
     } else if (!racer.isPlayer) {
-      // TODO(Phase 5 § 3.1): derive flapFps from opponent currentWPM:
-      //   flapFps = clamp(currentWPM / 10, 4, 12)
-      // For now, fixed 8 fps keeps birds visibly animated during Phase 2.
+      // TODO(Phase 5.2): derive opponent flap fps from interpolated progress
+      // velocity. For 5.1 we only wire the LOCAL player (below).
       racer.sprite.setFps(8);
+    } else if (racer.isPlayer && typeof racer.wpm === "number") {
+      // Spec § 3.1: flapFps = clamp(wpm / 10, 4, 12)
+      const fps = Math.max(4, Math.min(12, racer.wpm / 10));
+      racer.sprite.setFps(fps);
     }
 
     // Skip drawing if off-screen (but still update sprite)

@@ -15,6 +15,8 @@
  * Run: SERVER_PID=<pid> npx tsx scripts/load-test/connection-churn.ts
  */
 import { spawnSync } from "node:child_process";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error no @types/ws installed; this script runs via tsx, not compiled.
 import WebSocket from "ws";
 
 const ITERATIONS = 200;

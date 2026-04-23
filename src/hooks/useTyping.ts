@@ -17,11 +17,24 @@ interface UseTypingReturn {
   reset: (newPassage: string) => void;
 }
 
+/**
+ * Optional per-keystroke callback. Fires after each accepted keypress with
+ * the classification the `useCombo` reducer consumes (§ 3.5).
+ *   - "correct"   → cursor advanced, correctKeystrokes incremented
+ *   - "incorrect" → error recorded, cursor stayed
+ *
+ * Backspace isn't currently handled by TypingEngine so it never fires here.
+ */
+export type KeystrokeEvent =
+  | { kind: "correct"; charIndex: number }
+  | { kind: "incorrect"; charIndex: number };
+
 export function useTyping(
   passage: string,
   raceStartTime: number | null,
   enabled: boolean,
-  reconnectCharIndex?: number
+  reconnectCharIndex?: number,
+  onKeystroke?: (event: KeystrokeEvent) => void
 ): UseTypingReturn {
   const engineRef = useRef<TypingEngine>(new TypingEngine(passage));
   const [cursorPos, setCursorPos] = useState(0);
@@ -56,7 +69,18 @@ export function useTyping(
       const now = performance.now();
       const elapsed = now - raceStartTime;
 
+      const correctBefore = engine.correctKeystrokes;
+      const cursorBefore = engine.cursorPos;
       engine.handleKey(e.key, elapsed);
+      const advanced = engine.correctKeystrokes > correctBefore;
+
+      if (onKeystroke) {
+        onKeystroke(
+          advanced
+            ? { kind: "correct", charIndex: engine.cursorPos }
+            : { kind: "incorrect", charIndex: cursorBefore }
+        );
+      }
 
       setCursorPos(engine.cursorPos);
       setHasError(engine.hasError);
@@ -67,7 +91,7 @@ export function useTyping(
       setTotalKeystrokes(engine.totalKeystrokes);
       setCorrectKeystrokes(engine.correctKeystrokes);
     },
-    [enabled, raceStartTime]
+    [enabled, raceStartTime, onKeystroke]
   );
 
   const handleCompositionStart = useCallback(() => {

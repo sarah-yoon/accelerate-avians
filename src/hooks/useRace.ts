@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTyping } from "./useTyping";
+import { useCombo, type ComboState } from "./useCombo";
 import type { Passage, GhostRacer, RaceResult, RacePhase } from "@/types";
 
 interface UseRaceReturn {
@@ -18,6 +19,7 @@ interface UseRaceReturn {
   isLoading: boolean;
   raceStartTime: number | null;
   elapsedMs: number;
+  comboState: ComboState;
   startRace: (difficulty?: string, samePassage?: boolean, botDifficulty?: string) => Promise<void>;
   handleKeyDown: (e: KeyboardEvent) => void;
   handleCompositionStart: () => void;
@@ -36,10 +38,15 @@ export function useRace(clerkId?: string): UseRaceReturn {
   const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const elapsedFrameRef = useRef<number>(0);
 
+  const combo = useCombo();
+  const comboRecord = combo.record;
+
   const typing = useTyping(
     passage?.text ?? "",
     raceStartTime,
-    phase === "racing"
+    phase === "racing",
+    undefined,
+    comboRecord
   );
 
   const playerProgress = passage
@@ -130,8 +137,9 @@ export function useRace(clerkId?: string): UseRaceReturn {
         const ghostData = await ghostRes.json();
         setGhosts(ghostData.ghosts || []);
 
-        // Reset typing engine
+        // Reset typing engine + combo meter
         typing.reset(passageData.text);
+        comboRecord({ kind: "reset" });
 
         setIsLoading(false);
 
@@ -163,7 +171,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
         setIsLoading(false);
       }
     },
-    [clerkId, typing, passage]
+    [clerkId, typing, passage, comboRecord]
   );
 
   // Update elapsedMs during racing
@@ -198,6 +206,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
     isLoading,
     raceStartTime,
     elapsedMs,
+    comboState: combo.state,
     startRace,
     handleKeyDown: typing.handleKeyDown,
     handleCompositionStart: typing.handleCompositionStart,
