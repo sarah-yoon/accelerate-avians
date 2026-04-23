@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Press_Start_2P } from "next/font/google";
 import { CrtEffect } from "@/components/CrtEffect";
+import { SettingsPopover } from "@/components/SettingsPopover";
 import "./globals.css";
 
 const pressStart = Press_Start_2P({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <html lang="en" className={`${pressStart.variable}`}>
         <body className="bg-pixel-black text-pixel-text-white min-h-screen font-mono">
           {children}
+          <SettingsPopover />
           <CrtEffect />
         </body>
       </html>

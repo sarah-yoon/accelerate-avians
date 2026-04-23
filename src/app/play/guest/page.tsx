@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRace } from "@/hooks/useRace";
 import { RaceCanvas } from "@/components/race/RaceCanvas";
 import { ComboMeter } from "@/components/race/ComboMeter";
+import { LiveAnnouncer } from "@/components/race/LiveAnnouncer";
 import { TypingArea } from "@/components/typing/TypingArea";
+import { MobileChoice } from "@/components/MobileChoice";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
 
@@ -15,6 +18,7 @@ import Link from "next/link";
  */
 export default function GuestPlayPage() {
   const race = useRace(undefined);
+  const reducedMotion = useReducedMotion();
   const [resultOverlay, setResultOverlay] = useState(true);
   const hasAutoStartedRef = useRef(false);
 
@@ -34,11 +38,23 @@ export default function GuestPlayPage() {
 
   return (
     <>
+      <MobileChoice />
+
       {race.phase === "racing" && (
         <ComboMeter count={race.comboState.count} paused={race.comboState.paused} />
       )}
 
-      <main className="hidden md:flex flex-col items-center min-h-screen bg-pixel-black p-6">
+      <LiveAnnouncer
+        countdownValue={race.phase === "countdown" ? race.countdownValue : null}
+        phase={race.phase}
+        resultMessage={
+          race.result
+            ? `Finished ${race.result.placement} of ${race.result.totalRacers} at ${race.result.wpm} WPM`
+            : null
+        }
+      />
+
+      <main className="flex flex-col items-center min-h-screen bg-pixel-black p-6">
         <div className="w-full max-w-[900px] game-hud flex justify-between items-center px-4 py-3 mb-6">
           <Link href="/" className="game-menu-item !p-0 !pl-5 text-[8px]">
             HOME
@@ -70,6 +86,8 @@ export default function GuestPlayPage() {
                 totalChars={race.passage.charCount}
                 raceStartTime={race.raceStartTime}
                 wpm={race.wpm}
+                wordFlashKey={race.wordsCompleted}
+                reducedMotion={reducedMotion}
               />
 
               {race.result && resultOverlay && (
