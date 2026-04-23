@@ -71,19 +71,8 @@ export default async function LandingPage() {
           Race the flock. Type fast.
         </p>
 
-        {/* Primary CTA — no-signup play path */}
-        <Link
-          href="/play/guest"
-          className="pixel-btn font-heading text-[11px] md:text-[13px] px-10 py-4 text-pixel-black animate-pulse-glow mb-6"
-        >
-          ▶ PLAY NOW
-        </Link>
-        <p className="font-heading text-pixel-text-dim text-[7px] tracking-wider mb-10">
-          NO ACCOUNT NEEDED
-        </p>
-
-        {/* Secondary menu — signed-in features */}
-        <nav className="w-56 mb-10">
+        {/* Menu */}
+        <nav className="w-56 mb-10 mt-4">
           <Link href="/play" className="game-menu-item !py-3 !text-center !pl-0">
             SOLO RACE
           </Link>
