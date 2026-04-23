@@ -10,6 +10,7 @@ import {
 } from "./race-renderer";
 import { ParallaxRenderer } from "./parallax";
 import { BirdSprite } from "./bird-sprite";
+import { FeatherTrail } from "./feather-trail";
 import type { RacePhase, GhostRacer } from "@/types";
 import type { Racer, RaceRendererState } from "./race-renderer";
 import { interpolateGhostProgress } from "./race-renderer";
@@ -179,6 +180,9 @@ export function RaceCanvas({
   const queuedFlashRef = useRef(false);
   const lastFlashKeyRef = useRef(wordFlashKey ?? 0);
   const reducedMotionRef = useRef(reducedMotion ?? false);
+
+  // Feather trail (spec § 3.1). Single shared instance for all birds.
+  const featherTrailRef = useRef<FeatherTrail>(new FeatherTrail());
 
   useEffect(() => { reducedMotionRef.current = reducedMotion ?? false; }, [reducedMotion]);
   useEffect(() => {
@@ -418,6 +422,27 @@ export function RaceCanvas({
       };
 
       drawRace(ctx, state, parallaxRef.current, deltaMs, particlesRef.current);
+
+      // Feather trail (spec § 3.1) — emit behind the player while racing,
+      // gated on reduced-motion. Camera always keeps player at ~30% of
+      // screen width, so feathers emit near x=130 at lane-0 vertical
+      // center. Update + draw regardless of reduced-motion so existing
+      // particles finish their fade, but skip emission.
+      {
+        const ft = featherTrailRef.current;
+        ft.update(deltaMs);
+        if (
+          !reducedMotionRef.current &&
+          phaseRef.current === "racing" &&
+          (wpmRef.current ?? 0) > 0
+        ) {
+          const laneCount = Math.min(racers.length, 6);
+          const laneHeight = Math.floor(BASE_HEIGHT / Math.max(laneCount, 1));
+          const featherY = Math.floor(laneHeight / 2);
+          ft.tryEmit(130, featherY, wpmRef.current ?? 0, performance.now());
+        }
+        ft.draw(ctx);
+      }
 
       // Word-complete flash overlay (spec § 3.1). Linear fade-out over
       // 180 ms; only when NOT reduced-motion.
