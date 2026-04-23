@@ -33,6 +33,14 @@ interface RaceCanvasProps {
   wpm: number;
   backgroundSeed?: number;
   /**
+   * Increments on each word completion. RaceCanvas arms a white-flash
+   * overlay + 2-3px screen shake when the counter advances. Gated on
+   * `reducedMotion` per spec § 3.1.
+   */
+  wordFlashKey?: number;
+  /** Result of useReducedMotion(). When true, flash + shake are skipped. */
+  reducedMotion?: boolean;
+  /**
    * Per-opponent sample buffer, keyed by userId.
    * Populated by useMultiplayerRace (Task 12).  Passing null/undefined falls
    * back to the legacy _liveProgress path so existing behaviour is preserved
@@ -145,6 +153,8 @@ export function RaceCanvas({
   raceStartTime,
   wpm,
   backgroundSeed,
+  wordFlashKey,
+  reducedMotion,
   samplesRef,
   clockSyncIsReady,
   toServerTime,
@@ -160,6 +170,31 @@ export function RaceCanvas({
   const animFrameRef = useRef<number>(0);
   const scrollVelocityRef = useRef(0);
   const lastTypingTimeRef = useRef(0);
+
+  // Word-flash state (spec § 3.1). flashEndsAtMs / shakeEndsAtMs are
+  // wall-clock deadlines the render loop checks; word-flash coalescing
+  // queues the latest request if one is currently mid-animation.
+  const flashEndsAtMsRef = useRef(0);
+  const shakeEndsAtMsRef = useRef(0);
+  const queuedFlashRef = useRef(false);
+  const lastFlashKeyRef = useRef(wordFlashKey ?? 0);
+  const reducedMotionRef = useRef(reducedMotion ?? false);
+
+  useEffect(() => { reducedMotionRef.current = reducedMotion ?? false; }, [reducedMotion]);
+  useEffect(() => {
+    const key = wordFlashKey ?? 0;
+    if (key === lastFlashKeyRef.current) return;
+    lastFlashKeyRef.current = key;
+    if (reducedMotionRef.current) return;
+    const now = performance.now();
+    if (flashEndsAtMsRef.current > now) {
+      // Coalesce — a flash is currently animating; queue the latest request.
+      queuedFlashRef.current = true;
+    } else {
+      flashEndsAtMsRef.current = now + 180;
+      shakeEndsAtMsRef.current = now + 80;
+    }
+  }, [wordFlashKey]);
 
   // Initialize sprites and images
   useEffect(() => {
@@ -383,6 +418,30 @@ export function RaceCanvas({
       };
 
       drawRace(ctx, state, parallaxRef.current, deltaMs, particlesRef.current);
+
+      // Word-complete flash overlay (spec § 3.1). Linear fade-out over
+      // 180 ms; only when NOT reduced-motion.
+      const nowMs = performance.now();
+      if (flashEndsAtMsRef.current > nowMs) {
+        const remaining = flashEndsAtMsRef.current - nowMs;
+        const alpha = Math.max(0, Math.min(0.15, (remaining / 180) * 0.15));
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (queuedFlashRef.current) {
+        // Coalesced follow-up fires at window boundary.
+        queuedFlashRef.current = false;
+        flashEndsAtMsRef.current = nowMs + 180;
+        shakeEndsAtMsRef.current = nowMs + 80;
+      }
+
+      // Screen shake — small 2-3px CSS transform on the canvas wrapper.
+      if (shakeEndsAtMsRef.current > nowMs) {
+        const dx = (Math.random() - 0.5) * 4;
+        const dy = (Math.random() - 0.5) * 4;
+        canvas.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+      } else if (canvas.style.transform !== "") {
+        canvas.style.transform = "";
+      }
 
       // Draw minimap on separate canvas
       const minimap = minimapRef.current;

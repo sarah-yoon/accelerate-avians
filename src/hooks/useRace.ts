@@ -20,6 +20,8 @@ interface UseRaceReturn {
   raceStartTime: number | null;
   elapsedMs: number;
   comboState: ComboState;
+  /** Increments every time the player's cursor crosses a space — drives word-flash juice. */
+  wordsCompleted: number;
   startRace: (difficulty?: string, samePassage?: boolean, botDifficulty?: string) => Promise<void>;
   handleKeyDown: (e: KeyboardEvent) => void;
   handleCompositionStart: () => void;
@@ -40,6 +42,8 @@ export function useRace(clerkId?: string): UseRaceReturn {
 
   const combo = useCombo();
   const comboRecord = combo.record;
+  const [wordsCompleted, setWordsCompleted] = useState(0);
+  const prevCursorRef = useRef(0);
 
   const typing = useTyping(
     passage?.text ?? "",
@@ -52,6 +56,28 @@ export function useRace(clerkId?: string): UseRaceReturn {
   const playerProgress = passage
     ? typing.cursorPos / passage.charCount
     : 0;
+
+  // Word-boundary detector: every time the cursor advances across a space
+  // (or hits end-of-passage), bump a counter. RaceCanvas watches this for
+  // the word-flash juice (§ 3.1). Reset to 0 when a new passage loads.
+  useEffect(() => {
+    if (phase !== "racing" || !passage) return;
+    const prev = prevCursorRef.current;
+    const cur = typing.cursorPos;
+    if (cur > prev) {
+      let crossed = 0;
+      for (let i = prev; i < cur; i++) {
+        if (passage.text[i] === " ") crossed++;
+      }
+      if (cur >= passage.charCount && passage.text[passage.charCount - 1] !== " ") {
+        crossed++; // final word doesn't end with a space
+      }
+      if (crossed > 0) {
+        setWordsCompleted((n) => n + crossed);
+      }
+    }
+    prevCursorRef.current = cur;
+  }, [typing.cursorPos, phase, passage]);
 
   // Watch for race completion
   const typingComplete = typing.isComplete;
@@ -137,9 +163,11 @@ export function useRace(clerkId?: string): UseRaceReturn {
         const ghostData = await ghostRes.json();
         setGhosts(ghostData.ghosts || []);
 
-        // Reset typing engine + combo meter
+        // Reset typing engine + combo meter + word counter
         typing.reset(passageData.text);
         comboRecord({ kind: "reset" });
+        setWordsCompleted(0);
+        prevCursorRef.current = 0;
 
         setIsLoading(false);
 
@@ -207,6 +235,7 @@ export function useRace(clerkId?: string): UseRaceReturn {
     raceStartTime,
     elapsedMs,
     comboState: combo.state,
+    wordsCompleted,
     startRace,
     handleKeyDown: typing.handleKeyDown,
     handleCompositionStart: typing.handleCompositionStart,
