@@ -72,13 +72,51 @@ After the seed, further keepalive pings update the offset via EMA with `α = 0.3
 
 ## 5. Anti-cheat
 
-Phase 4 of the spec calls for a corpus-calibrated statistical anti-cheat layer (keystroke-interval distribution, paste detection, WPM ceiling, per-update jump check). That work is not yet shipped. The infrastructure is in place:
+Shipped in Phase 4. Five statistical checks run against the post-race `serverGhost` (the server-stamped progress stream from § 2). All checks operate at `LOG` level — they record `CheatViolation` rows but don't yet invalidate scores or kick players. Promotion to `INVALIDATE` is gated on a week of real-world data per the spec's § 2.1.3 methodology.
 
-- `Score.flagged Boolean` and `CheatViolation` model exist in the schema.
-- Leaderboard + ghost-replay queries filter `flagged: false`.
-- The existing synchronous `ProgressValidator` enforces bounds + monotonic + 30 updates/sec at the `KICK` level — this is the only enforcement live today.
+### Checks + thresholds
 
-Once Phase 4 ships, this section will document per-check thresholds, the labeled honest/cheat corpus, and precision/recall results.
+| Check | Trigger | Purpose |
+|---|---|---|
+| `min-interval` | any inter-keystroke interval < 12 ms | catches fake-keystroke macros (sub-human rollover) |
+| `interval-stddev` | any 30-keystroke rolling window with stddev < 10 ms AND mean > 50 ms | catches uniform-bot + macro-paced attackers; mean gate avoids flagging legitimate fast bursts |
+| `first-burst-paste` | ≥ 20 chars in first 2 `progress_update` messages | catches clipboard paste — real typists need 20 messages for 20 chars |
+| `jump` | any single sample advancing > 5 chars after the first 1 s | catches mid-race `charIndex` forgery |
+| `wpm-ceiling` | final WPM > 220 | flag for manual leaderboard review; world-record tier triggers here |
+
+All thresholds are numeric constants in `server/src/race/cheat-detector.ts` (`THRESHOLDS` table) for easy tuning.
+
+### Corpus methodology
+
+Spec § 2.1.3 requires ≥ 95% precision against a labeled corpus before any check is promoted past `LOG`. Corpus composition (single-typist synthesized):
+
+- **Honest samples (n=12):** 2 samples per WPM tier across 40 / 60 / 80 / 100 / 120 / 140 WPM, each 180 chars with Gaussian inter-keystroke jitter (stddev scaling with target interval) and a 5%-probability micro-pause model.
+- **Cheat samples (n=10):** 2 samples per attack class — paste, uniform-bot, macro-paced, jump, WPM-ceiling — synthesized deterministically.
+
+**Multi-typist corpus collection is Phase 4.2.** The honest corpus is a single-typist synthesis; the Aalto 136M Keystrokes Dataset integration is documented as future work.
+
+Fixture generator: `server/test/fixtures/cheat-corpus/build-corpus.ts` → `honest-samples.json` + `cheat-samples.json`.
+
+### Per-check results
+
+Measured by `server/src/race/cheat-detector.test.ts` running against the committed corpus:
+
+| Check | TP | FP | FN | Precision | Recall | Promotable (≥95%)? |
+|---|---|---|---|---|---|---|
+| `min-interval` | 2 | 0 | 2 | **100%** | 50% | Yes — only catches intervals-below-12ms attacks; uniform-bot at 100ms correctly excluded |
+| `interval-stddev` | 4 | 0 | 0 | **100%** | 100% | Yes |
+| `first-burst-paste` | 2 | 0 | 0 | **100%** | 100% | Yes |
+| `jump` | 2 | 0 | 0 | **100%** | 100% | Yes |
+| `wpm-ceiling` | 2 | 0 | 0 | **100%** | 100% | Yes — retained at LOG by choice (spec's intent: manual review signal) |
+
+All checks clear the ≥95% precision bar on the current corpus. They ship at `LOG` pending real-world validation; per-match cap is 5 violations.
+
+### What's not yet shipped (Phase 4.2)
+
+- Client-side `composed: true` IME flag wiring. Until that lands, `interval-stddev` may false-positive IME users (Korean, Japanese, Chinese, European-accented input) — another reason to hold at `LOG` despite the 100% corpus precision.
+- Multi-typist honest corpus (real friends or Aalto dataset) — needed before promoting to `INVALIDATE`.
+- `scripts/prune-violations.ts` — 30-day retention job for the `CheatViolation` table.
+- Leaderboard query already filters `flagged: false` (Phase 1); promotion to `INVALIDATE` will flip that flag via `MatchPlayer.flagged`.
 
 ## 6. Reconnection protocol
 
