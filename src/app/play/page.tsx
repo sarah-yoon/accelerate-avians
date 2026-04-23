@@ -11,6 +11,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { MobileChoice } from "@/components/MobileChoice";
 import { ErrorOverlay } from "@/components/ErrorOverlay";
 import { setRacePhase } from "@/lib/race-phase-signal";
+import { fnv1a } from "@/lib/string-hash";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
 import type { Difficulty } from "@/types";
@@ -115,6 +116,7 @@ export default function PlayPage() {
                 wpm={race.wpm}
                 wordFlashKey={race.wordsCompleted}
                 reducedMotion={reducedMotion}
+                backgroundSeed={race.passage ? fnv1a(race.passage.id) : undefined}
               />
 
               {/* Results overlay on top of canvas */}

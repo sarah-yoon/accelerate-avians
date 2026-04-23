@@ -11,6 +11,7 @@ import { ErrorOverlay } from "@/components/ErrorOverlay";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { setRacePhase } from "@/lib/race-phase-signal";
 import { stashResult } from "@/lib/claim-result";
+import { fnv1a } from "@/lib/string-hash";
 import { RaceResultsPanel } from "@/components/RaceResultsPanel";
 import Link from "next/link";
 
@@ -119,6 +120,7 @@ export default function GuestPlayPage() {
                 wpm={race.wpm}
                 wordFlashKey={race.wordsCompleted}
                 reducedMotion={reducedMotion}
+                backgroundSeed={race.passage ? fnv1a(race.passage.id) : undefined}
               />
 
               {race.result && resultOverlay && (
